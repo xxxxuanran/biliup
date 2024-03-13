@@ -602,26 +602,27 @@ def setup_middlewares(app):
 
 def log_startup(host, port) -> None:
     """Show information about the address when starting the server."""
-    messages = ['WebUI 已启动，请浏览器访问']
-    host = host if host else "0.0.0.0"
+    ip_version = 4
+    try:
+        interface_ip = f"[{get_interface_ip(socket.AF_INET6)}]"
+        ip_version = 6
+    except:
+        interface_ip = get_interface_ip(socket.AF_INET)
+    ANY_IP = '::' if ip_version == 6 else '0.0.0.0'
+    messages = ['WebUI 已启动，请打开浏览器访问']
+    listen_host = host if host else ANY_IP
     scheme = "http"
-    display_hostname = host
 
-    if host in {"0.0.0.0", "::"}:
-        messages.append(f" * Running on all addresses ({host})")
-        if host == "0.0.0.0":
-            localhost = "127.0.0.1"
-            display_hostname = get_interface_ip(socket.AF_INET)
+    if listen_host in {"0.0.0.0", "::"}:
+        messages.append(f" * Running on all addresses ({listen_host})")
+        if listen_host == "0.0.0.0":
+            localhost = "localhost" # WSL 友好
         else:
             localhost = "[::1]"
-            display_hostname = get_interface_ip(socket.AF_INET6)
 
         messages.append(f" * Running on {scheme}://{localhost}:{port}")
 
-    if ":" in display_hostname:
-        display_hostname = f"[{display_hostname}]"
-
-    messages.append(f" * Running on {scheme}://{display_hostname}:{port}")
+    messages.append(f" * Running on {scheme}://{interface_ip}:{port}")
 
     print("\n".join(messages))
 
