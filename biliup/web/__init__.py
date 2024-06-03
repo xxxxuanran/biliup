@@ -606,7 +606,6 @@ async def service(args):
     await runner.setup()
     site = web.TCPSite(runner, host=args.host, port=args.port)
     await site.start()
-    log_startup(args.host, args.port)
     return runner
 
 
@@ -657,6 +656,7 @@ def setup_middlewares(app):
     app.middlewares.append(file_type_check_middleware)
 
 
+@staticmethod
 def log_startup(host, port) -> None:
     """Show information about the address when starting the server."""
     messages = ['WebUI 已启动，请浏览器访问']
@@ -683,6 +683,7 @@ def log_startup(host, port) -> None:
     print("\n".join(messages))
 
 
+@staticmethod
 def get_interface_ip(family: socket.AddressFamily) -> str:
     """Get the IP address of an external interface. Used when binding to
     0.0.0.0 or ::1 to show a more useful URL.

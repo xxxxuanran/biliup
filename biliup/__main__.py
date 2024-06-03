@@ -75,6 +75,7 @@ async def main(args):
         runner = await biliup.web.service(args)
         detector = AutoReload(event_manager, runner.cleanup, interval=interval)
         biliup.common.reload.global_reloader = detector
+        biliup.web.log_startup(args.host, args.port)
         await detector.astart()
     else:
         import biliup.common.reload
