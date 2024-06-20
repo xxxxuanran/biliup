@@ -149,7 +149,7 @@ class DouyinUtils:
         existing_params['browser_language'] = ['zh-CN']
         existing_params['browser_platform'] = ['Win32']
         existing_params['browser_name'] = ['Mozilla']
-        existing_params['browser_version'] = ['92.0.4515.159']
+        existing_params['browser_version'] = ['''5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36''']
         new_query_string = urlencode(existing_params, doseq=True)
         new_url = urlunparse((
             parsed_url.scheme,
@@ -164,4 +164,7 @@ class DouyinUtils:
     @staticmethod
     def get_signature(params: str) -> str:
         # TODO
-        return ""
+        # 20240101
+        # return "6sxSrjH+jZWZFaXN"
+        # 20240621 02:00
+        return "68WViIr+hAQWInHP"

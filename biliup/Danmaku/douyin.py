@@ -19,10 +19,11 @@ logger = logging.getLogger('biliup')
 
 class Douyin:
     headers = {
-        'user-agent': random_user_agent(),
+        # 'user-agent': random_user_agent(),
+        'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
         'Referer': 'https://live.douyin.com/',
         # 'Cookie': config.get('user', {}).get('douyin_cookie', '')
-        'Cookie': "__ac_nonce=066745f4100c8cbc6c32;__ac_signature=_02B4Z6wo00f01itZ-8wAAIDCaQO7lcaCA.Yref9AAOyw7znOjv51AHRLwepHoFMiKOExeXBCX8GbQSnUkPVjZf09Fug0eayO5jZPABkm-lZ0sg.g7jYaQFr17jh5rZUXZl5P8ffkOfK7crVt1e;"
+        'Cookie': "__ac_nonce=066745f4100c8cbc6c32;__ac_signature=_02B4Z6wo00f01GP0QEAAAIDAIa4AGM6bDAhj1ETAAH6R1a;"
     }
     heartbeat = b':\x02hb'
     heartbeatInterval = 10
@@ -35,7 +36,7 @@ class Douyin:
             "webcast_sdk_version": "1.0.14-beta.0", # https://lf-cdn-tos.bytescm.com/obj/static/webcast/douyin_live/7697.782665f8.js -> ee.VERSION = "1.0.14-beta.0"
             # "update_version_code": "1.0.14-beta.0",
             # "cookie_enabled": "true",
-            # "screen_width": "1920",/
+            # "screen_width": "1920",
             # "screen_height": "1080",
             # "browser_online": "true",
             # "tz_name": "Asia/Shanghai",
@@ -87,7 +88,9 @@ class Douyin:
                 url = DouyinUtils.build_request_url(
                     f"wss://webcast5-ws-web-lf.douyin.com/webcast/im/push/v2/?room_id={room_info['id_str']}&compress=gzip") \
                         + "&" + "&".join([f"{k}={v}" for k, v in webcast5_params.items()]) \
-                        + "&" + DouyinUtils.get_signature(f",live_id=1,aid=6383,version_code={webcast5_params['version_code']},webcast_sdk_version={webcast5_params['webcast_sdk_version']},room_id={room_info['id_str']},sub_room_id=,sub_channel_id=,did_rule=3,user_unique_id={webcast5_params['user_unique_id']},device_platform=web,device_type=,ac=,identity=audience")
+                        + "&signature=68WViIr+hAQWInHP"
+                #         # + "&signature=" + DouyinUtils.get_signature(f",live_id=1,aid=6383,version_code={webcast5_params['version_code']},webcast_sdk_version={webcast5_params['webcast_sdk_version']},room_id={room_info['id_str']},sub_room_id=,sub_channel_id=,did_rule=3,user_unique_id={webcast5_params['user_unique_id']},device_platform=web,device_type=,ac=,identity=audience")
+                # url = "wss://webcast5-ws-web-lf.douyin.com/webcast/im/push/v2/?app_name=douyin_web&version_code=180800&webcast_sdk_version=1.0.14-beta.0&update_version_code=1.0.14-beta.0&compress=gzip&device_platform=web&cookie_enabled=true&screen_width=1920&screen_height=1080&browser_language=zh-CN&browser_platform=Win32&browser_name=Mozilla&browser_version=5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36&browser_online=true&tz_name=Asia/Shanghai&cursor=d-1_u-1_h-7382673138935763979_t-1718912591852_r-1&internal_ext=internal_src:dim|wss_push_room_id:7382614984783579904|wss_push_did:7382661809146594850|first_req_ms:1718912591777|fetch_time:1718912591852|seq:1|wss_info:0-1718912591852-0-0|wrds_v:7382673332962853311&host=https://live.douyin.com&aid=6383&live_id=1&did_rule=3&endpoint=live_pc&support_wrds=1&user_unique_id=7382661809146594850&im_path=/webcast/im/fetch/&identity=audience&need_persist_msg_count=15&insert_task_id=&live_reason=&room_id=7382614984783579904&heartbeatDuration=0&signature=6sxSrjH+jZWZFaXN"
                 return url, []
 
     @staticmethod
@@ -115,7 +118,7 @@ class Douyin:
                 data = json_format.MessageToDict(chat_message, preserving_proto_field_name=True)
                 # name = data['user']['nickName']
                 content = data['content']
-                # print(content)
+                print(content)
                 # msg_dict = {"time": now, "name": name, "content": content, "msg_type": "danmaku", "color": "ffffff"}
                 msg_dict = {"content": content, "msg_type": "danmaku"}
                 msgs.append(msg_dict)
