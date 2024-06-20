@@ -160,3 +160,8 @@ class DouyinUtils:
             parsed_url.fragment
         ))
         return new_url
+
+    @staticmethod
+    def get_signature(params: str) -> str:
+        # TODO
+        return ""
