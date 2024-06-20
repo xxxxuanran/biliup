@@ -148,7 +148,7 @@ class DouyinUtils:
         existing_params['device_platform'] = ['web']
         existing_params['browser_language'] = ['zh-CN']
         existing_params['browser_platform'] = ['Win32']
-        existing_params['browser_name'] = ['Chrome']
+        existing_params['browser_name'] = ['Mozilla']
         existing_params['browser_version'] = ['92.0.4515.159']
         new_query_string = urlencode(existing_params, doseq=True)
         new_url = urlunparse((

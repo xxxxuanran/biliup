@@ -90,7 +90,8 @@ class DanmakuClient(IDanmakuClient):
                     await self.__ws.send_bytes(reg_data)
         except asyncio.CancelledError:
             raise
-        except:
+        except Exception as e:
+            logger.exception("Unknowd error: ")
             raise self.WebsocketErrorException()
 
     async def __heartbeats(self):
