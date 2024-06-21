@@ -36,7 +36,9 @@ def _0x26d461():
     _0x462d0a = [0, 0]
     _0x136148 = [0, 0]
     _0x17d8e6 = 1
-    _0x499168 |= _0x216650['kFakeOperations']
+    if not False and False:
+        _0x17d8e6 |= 64
+        _0x499168 |= _0x216650['kFakeOperations']
     if 0 == len(_0x9fb121):
         _0x17d8e6 |= 2
         _0x499168 |= _0x216650['kNoMove']

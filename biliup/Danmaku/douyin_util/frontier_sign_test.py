@@ -26,7 +26,7 @@ def main():
     #     print("true")
     val = _0x26d461()
     print(val)
-    if val == "14":
+    if val == 14:
         print("true")
 
 if __name__ == "__main__":
