@@ -1,20 +1,27 @@
 import execjs  # 导入 execjs 库
+import hashlib
 
-# 载入 JavaScript 文件
-def load_js(file_path):
-    with open(file_path, 'r') as file:
-        return file.read()
+class ByteDance:
+    @staticmethod
+    def md5(string) -> str:
+        return hashlib.md5(bytearray(string)).hexdigest()
+
+    @staticmethod
+    def decode(hex_str) -> list:
+        return list(bytes.fromhex(hex_str))
+
+# https://juejin.cn/post/7256769427600949305
+# https://blog.csdn.net/weixin_46084750/article/details/136541654
+# https://blog.csdn.net/wangenjie1992/article/details/136631034
+
+# https://blog.csdn.net/m0_75268677/article/details/137596255
 
 def main():
-    js_code = load_js("./biliup/Danmaku/douyin_util/xbogus.js")  # 指定 JavaScript 文件名
-    context = execjs.compile(js_code)  # 编译 JS 代码
-
-    # 创建一个 JS 对象，并设置其键和值
-    js_object = {"X-MS-STUB": "4da9bc16093d71bc00627f22f4552c0a"}
-
-    # 调用 JavaScript 中的 _0x5c2014 函数，并传入 js_object
-    result = context.call("window.frontierSign", js_object)
-    print("Result from JS function:", result)
+    e = "2f5d497b88accae9df4c90bcba019ffa"
+    list = ByteDance.decode(ByteDance.md5(ByteDance.decode(e)))
+    print(list)
+    if [105, 79, 195, 101, 93, 204, 30, 3, 92, 154, 42, 65, 123, 151, 206, 6] == list:
+        print("true")
 
 if __name__ == "__main__":
     main()

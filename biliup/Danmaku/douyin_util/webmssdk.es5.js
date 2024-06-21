@@ -1,15 +1,15 @@
-document = {
-    "createElement": function (){}
-};
-screen = {};
-window = undefined
-window = window ? window: global
-window.navigator = {
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/78.0.3904.108 Safari/537.36"
-};
-navigator = {
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/78.0.3904.108 Safari/537.36"
-};
+// document = {
+//     "createElement": function (){}
+// };
+// screen = {};
+// window = undefined
+// window = window ? window: global
+// window.navigator = {
+//     "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/78.0.3904.108 Safari/537.36"
+// };
+// navigator = {
+//     "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/78.0.3904.108 Safari/537.36"
+// };
 
 
 if (!window.byted_acrawler) {
@@ -4754,7 +4754,7 @@ if (!window.byted_acrawler) {
                 "X-Bogus": _0x1633f2(_0x2e10da[a(479)], _0x462335[a(508)], e, r, t)
             };
         }
-        window.frontierSign = function _0x5c2014(e) {
+        function _0x5c2014(e) {
             return w_0x5c3140("484e4f4a403f524300362d0a5f00233c0000000029b6a730000000630214000103001400020700001400030700011400041101031100031347000d11010311000313140001450023110103110004134700130211010011010311000413430114000145000607000214000102110101110002021100014303140005110005420003096b1e7e601e606766710c6b1e7e601e63726a7f7c7277200303030303030303030303030303030303030303030303030303030303030303", {
                 get 0() {
                     return _0x5dd467;
@@ -5704,9 +5704,9 @@ if (!window.byted_acrawler) {
     });
 }
 
-export const frontierSign = function (md5) {
-    const e = {
-        "X-MS-STUB": md5
-    };
-    return window.frontierSign(e);
-}
+// export const frontierSign = function (md5) {
+//     const e = {
+//         "X-MS-STUB": md5
+//     };
+//     return window.frontierSign(e);
+// }
