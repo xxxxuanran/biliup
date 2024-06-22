@@ -1,15 +1,15 @@
-// document = {
-//     "createElement": function (){}
-// };
-// screen = {};
-// window = undefined
-// window = window ? window: global
-// window.navigator = {
-//     "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/78.0.3904.108 Safari/537.36"
-// };
-// navigator = {
-//     "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/78.0.3904.108 Safari/537.36"
-// };
+document = {
+    "createElement": function (){}
+};
+screen = {};
+window = undefined
+window = window ? window: global
+window.navigator = {
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/78.0.3904.108 Safari/537.36"
+};
+navigator = {
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/78.0.3904.108 Safari/537.36"
+};
 
 
 if (!window.byted_acrawler) {
@@ -5704,9 +5704,11 @@ if (!window.byted_acrawler) {
     });
 }
 
-// export const frontierSign = function (md5) {
-//     const e = {
-//         "X-MS-STUB": md5
-//     };
-//     return window.frontierSign(e);
-// }
+function biubiu(md5) {
+    const e = {
+        "X-MS-STUB": md5
+    };
+    return window.byted_acrawler.frontierSign(e);
+}
+
+console.log(biubiu("9b8b5c7b7c9b8b5c7b7c9b8b5c7b7c9"))
