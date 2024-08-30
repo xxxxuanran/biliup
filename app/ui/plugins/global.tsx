@@ -35,11 +35,11 @@ const Global: React.FC = () => {
                             选择全局默认的下载插件, 可选:
                             <br />
                             1.
-                            streamlink（streamlink 用于多线程下载 hls 流，对于 FLV 流将仅使用 ffmpeg。请手动安装ffmpeg）
+                            streamlink（多线程下载 HLS 流并通过 FFmpeg 转封装写入文件。请手动安装FFmpeg）
                             <br />
-                            2. ffmpeg（纯ffmpeg下载。请手动安装ffmpeg）
+                            2. ffmpeg（通过 FFmpeg 下载并转封装写入文件。请手动安装 FFmpeg）
                             <br />
-                            3. stream-gears（默认）
+                            3. stream-gears（默认下载器。对于中国大陆平台有更好的支持性。）
                         </div>
                     }
                     style={{ width: "100%" }}
@@ -50,7 +50,7 @@ const Global: React.FC = () => {
                     showClear={true}
                 >
                     <Select.Option value="streamlink">
-                        streamlink（hls多线程下载）
+                        streamlink（仅适用于 HLS 流）
                     </Select.Option>
                     <Select.Option value="ffmpeg">ffmpeg</Select.Option>
                     <Select.Option value="stream-gears">
