@@ -3,15 +3,17 @@ import asyncio
 import httpx
 
 
+DEFAULT_HTTP_TIMEOUT = 15.0
+
 TIMEOUT = httpx.Timeout(
     timeout=120.0,
-    connect=15.0,
-    pool=35.0
+    connect=DEFAULT_HTTP_TIMEOUT,
+    pool=30.0
 )
 LIMITS = httpx.Limits(
     max_connections=1000,
     max_keepalive_connections=100,
-    keepalive_expiry=35.0 # 大于 event_loop_interval 以尽可能复用连接
+    keepalive_expiry=3.0
 )
 
 client = httpx.AsyncClient(

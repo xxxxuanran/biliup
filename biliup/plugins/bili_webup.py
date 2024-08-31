@@ -401,7 +401,7 @@ class BiliBili:
         ret = resp.json()
         logger.debug(f"preupload: {ret}")
         endpoint = self._auto_os['probe_url'].split('/OK')[0]
-        if ret['endpoint'] != endpoint:
+        if ret['endpoint'] != endpoint and endpoint in ret.get('endpoints', []):
             logger.info(f"The endpoint {ret['endpoint']} will be corrected to {endpoint}")
             ret['endpoint'] = endpoint
         return asyncio.run(upload(f, total_size, ret, tasks=tasks))
