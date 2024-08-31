@@ -232,10 +232,11 @@ const Global: React.FC = () => {
                         客户端（client）
                     </Form.Select.Option>
                 </Form.Select>
+
                 <Form.Select
                     field="uploader"
                     label="上传插件（uploader）"
-                    extraText="全局默认上传插件选择。"
+                    // extraText="全局默认上传插件选择。"
                     placeholder="biliup-rs"
                     noLabel={true}
                     style={{ width: "100%", display: 'none' }}
@@ -256,10 +257,11 @@ const Global: React.FC = () => {
                         Noop（即不上传，但会执行后处理）
                     </Form.Select.Option>
                 </Form.Select>
+
                 <Form.Select
                     field="lines"
                     label="上传线路（lines）"
-                    extraText="b站上传线路选择，默认为自动模式，可手动切换为bda, bda2, ws, qn, bldsa, tx, txa"
+                    extraText="b站上传线路选择，默认为自动模式，可手动切换为bda, bda2, qn, bldsa, tx, txa, alia"
                     placeholder="AUTO（自动，默认）"
                     style={{ width: "100%" }}
                     fieldStyle={{
@@ -271,12 +273,13 @@ const Global: React.FC = () => {
                     <Form.Select.Option value="AUTO">AUTO（自动，默认）</Form.Select.Option>
                     <Form.Select.Option value="bda">bda</Form.Select.Option>
                     <Form.Select.Option value="bda2">bda2</Form.Select.Option>
-                    <Form.Select.Option value="ws">ws</Form.Select.Option>
                     <Form.Select.Option value="qn">qn</Form.Select.Option>
                     <Form.Select.Option value="bldsa">bldsa</Form.Select.Option>
                     <Form.Select.Option value="tx">tx</Form.Select.Option>
                     <Form.Select.Option value="txa">txa</Form.Select.Option>
+                    <Form.Select.Option value="alia">alia</Form.Select.Option>
                 </Form.Select>
+
                 <Form.InputNumber
                     field="threads"
                     placeholder={3}
@@ -293,7 +296,7 @@ const Global: React.FC = () => {
                     field="pool2_size"
                     extraText={
                         <div style={{ fontSize: "14px" }}>
-                            负责上传事件的线程池大小。根据实际带宽设置。
+                            负责上传事件的线程池大小。根据实际带宽和需要同时上传的主播数量设置。
                         </div>
                     }
                     placeholder={3}
@@ -304,6 +307,7 @@ const Global: React.FC = () => {
                         padding: 0,
                     }}
                 />
+
                 <Form.Switch
                     field="use_live_cover"
                     extraText={

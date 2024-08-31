@@ -338,46 +338,39 @@ class BiliBili:
 
     def upload_file(self, filepath: str, lines='AUTO', tasks=3):
         """上传本地视频文件,返回视频信息dict
-        b站目前支持4种上传线路upos, kodo, gcs, bos
+        b站目前支持 1 种上传线路 upos
+        kodo, gcs, bos 均已弃用
         gcs: {"os":"gcs","query":"bucket=bvcupcdngcsus&probe_version=20221109",
         "probe_url":"//storage.googleapis.com/bvcupcdngcsus/OK"},
         bos: {"os":"bos","query":"bucket=bvcupcdnboshb&probe_version=20221109",
         "probe_url":"??"}
         """
-        preferred_upos_cdn = None
         if not self._auto_os:
             if lines == 'bda':
                 self._auto_os = {"os": "upos", "query": "upcdn=bda&probe_version=20221109",
                                  "probe_url": "//upos-cs-upcdnbda.bilivideo.com/OK"}
-                preferred_upos_cdn = 'bda'
             elif lines in {'bda2', 'cs-bda2'}:
                 self._auto_os = {"os": "upos", "query": "upcdn=bda2&probe_version=20221109",
                                  "probe_url": "//upos-cs-upcdnbda2.bilivideo.com/OK"}
-                preferred_upos_cdn = 'bda2'
-            elif lines == 'ws':
-                self._auto_os = {"os": "upos", "query": "upcdn=ws&probe_version=20221109",
-                                 "probe_url": "//upos-cs-upcdnws.bilivideo.com/OK"}
-                preferred_upos_cdn = 'ws'
+            elif lines == 'alia':
+                self._auto_os = {"os": "upos", "query": "upcdn=alia&probe_version=20221109",
+                                 "probe_url": "//upos-cs-upcdnalia.bilivideo.com/OK"}
             elif lines in {'qn', 'cs-qn'}:
                 self._auto_os = {"os": "upos", "query": "upcdn=qn&probe_version=20221109",
                                  "probe_url": "//upos-cs-upcdnqn.bilivideo.com/OK"}
-                preferred_upos_cdn = 'qn'
             elif lines == 'bldsa':
                 self._auto_os = {"os": "upos", "query": "upcdn=bldsa&probe_version=20221109",
                                  "probe_url": "//upos-cs-upcdnbldsa.bilivideo.com/OK"}
-                preferred_upos_cdn = 'bldsa'
             elif lines == 'tx':
                 self._auto_os = {"os": "upos", "query": "upcdn=tx&probe_version=20221109",
                                  "probe_url": "//upos-cs-upcdntx.bilivideo.com/OK"}
-                preferred_upos_cdn = 'tx'
             elif lines == 'txa':
                 self._auto_os = {"os": "upos", "query": "upcdn=txa&probe_version=20221109",
                                  "probe_url": "//upos-cs-upcdntxa.bilivideo.com/OK"}
-                preferred_upos_cdn = 'txa'
             else:
                 self._auto_os = self.probe()
             logger.info(f"线路选择 => {self._auto_os['os']}: {self._auto_os['query']}. time: {self._auto_os.get('cost')}")
-        if self._auto_os['os'] == 'upos':
+        if self._auto_os['os'] == "upos":
             upload = self.upos
         # elif self._auto_os['os'] == 'cos':
         #     upload = self.cos
@@ -392,32 +385,26 @@ class BiliBili:
         total_size = os.path.getsize(filepath)
         with open(filepath, 'rb') as f:
             query = {
-                'r': self._auto_os['os'] if self._auto_os['os'] != 'cos-internal' else 'cos',
-                'profile': 'ugcupos/bup' if 'upos' == self._auto_os['os'] else "ugcupos/bupfetch",
+                # 'r': self._auto_os['os'] if self._auto_os['os'] != 'cos-internal' else 'cos',
+                'r': 'upos',
+                # 'profile': 'ugcupos/bup' if 'upos' == self._auto_os['os'] else "ugcupos/bupfetch",
+                'profile': 'ugcupos/bup',
                 'ssl': 0,
                 'version': '2.8.12',
                 'build': 2081200,
                 'name': f.name,
                 'size': total_size,
             }
-            resp = self.__session.get(
-                f"https://member.bilibili.com/preupload?{self._auto_os['query']}", params=query,
-                timeout=5)
-            ret = resp.json()
-            logger.debug(f"preupload: {ret}")
-            if preferred_upos_cdn:
-                original_endpoint: str = ret['endpoint']
-                if re.match(r'//upos-(sz|cs)-upcdn(bda2|ws|qn)\.bilivideo\.com', original_endpoint):
-                    if re.match(r'bda2|qn|ws', preferred_upos_cdn):
-                        logger.debug(f"Preferred UpOS CDN: {preferred_upos_cdn}")
-                        new_endpoint = re.sub(r'upcdn(bda2|qn|ws)', f'upcdn{preferred_upos_cdn}', original_endpoint)
-                        logger.debug(f"{original_endpoint} => {new_endpoint}")
-                        ret['endpoint'] = new_endpoint
-                    else:
-                        logger.error(f"Unrecognized preferred_upos_cdn: {preferred_upos_cdn}")
-                else:
-                    logger.warning(f"Assigned UpOS endpoint {original_endpoint} was never seen before, something else might have changed, so will not modify it")
-            return asyncio.run(upload(f, total_size, ret, tasks=tasks))
+        resp = self.__session.get(
+            f"https://member.bilibili.com/preupload?{self._auto_os['query']}", params=query,
+            timeout=5)
+        ret = resp.json()
+        logger.debug(f"preupload: {ret}")
+        endpoint = self._auto_os['probe_url'].split('/OK')[0]
+        if ret['endpoint'] != endpoint:
+            logger.info(f"The endpoint {ret['endpoint']} will be corrected to {endpoint}")
+            ret['endpoint'] = endpoint
+        return asyncio.run(upload(f, total_size, ret, tasks=tasks))
 
     async def cos(self, file, total_size, ret, chunk_size=10485760, tasks=3, internal=False):
         filename = file.name

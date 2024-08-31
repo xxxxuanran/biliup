@@ -122,8 +122,8 @@ def stream_gears_upload(ex_conn, lines, *args, **kwargs):
             kwargs['line'] = stream_gears.UploadLine.Bda
         elif lines == 'bda2':
             kwargs['line'] = stream_gears.UploadLine.Bda2
-        elif lines == 'ws':
-            kwargs['line'] = stream_gears.UploadLine.Ws
+        elif lines == 'alia':
+            kwargs['line'] = stream_gears.UploadLine.Alia
         elif lines == 'qn':
             kwargs['line'] = stream_gears.UploadLine.Qn
         elif lines == 'tx':
