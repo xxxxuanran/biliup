@@ -1,6 +1,7 @@
 import copy
 import os
 import shutil
+import subprocess
 from typing import Optional
 
 import yt_dlp
@@ -12,7 +13,83 @@ from ..engine.decorators import Plugin
 from . import logger
 from ..engine.download import DownloadBase
 
-VALID_URL_BASE = r'https?://(?:(?:www|m)\.)?youtube\.com/(?P<id>.*?)\??(.*?)'
+VALID_URL_BASE = r'https?://(?:(?:www|m)\.)?youtube\.com/(watch|channel|user|playlist|shorts|?P<id>@.*?|?P<channel_id>.*?)/(?P<type>.*?!(?:live))'
+VALID_URL_LIVE = r'https?://(?:(?:www|m)\.)?youtube\.com/(.*?)/live'
+
+@Plugin.download(regexp=VALID_URL_LIVE)
+class YoutubeLive(DownloadBase):
+    def __init__(self, fname, url, suffix='flv'):
+        super().__init__(fname, url, suffix)
+        self.__cookie = config.get('user', {}).get('youtube_cookie')
+        self.__download_url: Optional[str] = None
+
+    async def acheck_stream(self, is_check=False):
+        ydl_opts = {
+            'cookiefile': self.__cookie,
+            'ignoreerrors': True,
+            'extractor_retries': 0,
+            'proxy': 'http://127.0.0.1:7890',
+        }
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(self.url, download=False)
+            if type(info) is not dict:
+                logger.warning(f"{Youtube.__name__}: {self.url}: 获取错误")
+                return False
+            if (
+                info.get('live_status') == 'is_live' and
+                info.get('is_live') == True and
+                info.get('was_live') == False and
+                info.get('_type') == None
+            ):
+                self.title = info.get('fulltitle')
+                self.__download_url = info.get('webpage_url')
+                self.live_cover_url = info.get('thumbnail')
+                return True
+            return False
+
+    def download(self):
+        filename = self.gen_download_filename(is_fmt=True)
+        download_dir = f'./cache/youtube/{self.fname}'
+        if not os.path.exists(download_dir):
+            os.makedirs(download_dir)
+        if self.downloader == "ffmpeg":
+            self.suffix = "mp4"
+            try:
+                ytarchive_options = config.get('ytarchive_options', [])
+                if self.__cookie is not None:
+                    ytarchive_options += ["--cookies", self.__cookie]
+                if not any(opt in ytarchive_options for opt in ("-o", "--output")):
+                    ytarchive_options += ["-o", filename]
+                else:
+                    logger.warning(f"{YoutubeLive.__name__} - {self.url}: 参数存在自定义输出，可能导致无法自动上传")
+                if not any(opt in ytarchive_options for opt in ("-td", "--temporary-dir")):
+                    ytarchive_options += ["-td", download_dir]
+                if not any(opt in ytarchive_options for opt in ("--threads")):
+                    ytarchive_options += ["--threads", "3"]
+                ytarchive_options += ["--proxy", "http://127.0.0.1:7890"]
+                with subprocess.Popen(
+                    ["ytarchive", *ytarchive_options, self.__download_url, "best"],
+                    stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+                ) as proc:
+                    while proc.poll() is None:
+                        line = proc.stdout.readline()
+                        if line:
+                            logger.debug(line.rstrip())
+                            print(line.rstrip())
+                    if proc.returncode != 0:
+                        logger.error(f"{YoutubeLive.__name__}: {self.url}: 下载失败 {proc.stderr.read()}")
+                        return False
+                    else:
+                        for file in os.listdir(download_dir):
+                            shutil.move(f'{download_dir}/{file}', '.')
+                        self.__download_segment_callback(f'{filename}.{self.suffix}')
+            except Exception as e:
+                logger.error(f"{YoutubeLive.__name__}: {self.url}: 下载失败 {e}")
+                return False
+        else:
+            logger.error(f"{YoutubeLive.__name__}: {self.url}: 不支持的下载器 {self.downloader}")
+            return False
+        return True
 
 
 @Plugin.download(regexp=VALID_URL_BASE)

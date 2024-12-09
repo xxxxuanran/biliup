@@ -188,7 +188,8 @@ class Bililive(DownloadBase):
             streamName = match1(stream_url['base_url'], streamname_regexp)
             if streamName is not None and qualityNumber >= 10000:
                 _base_url = stream_url['base_url'].replace(f"_{streamName.split('_')[-1]}", '')
-                if (await self.acheck_url_healthy(f"{stream_url['host']}{_base_url}{stream_url['extra']}")) is not None:
+                _base_url = _base_url.replace(f"{_base_url.split("/")[2]}/", "")
+                if (await self.acheck_url_healthy(f"{stream_url['host']}{_base_url}")) is not None:
                     stream_url['base_url'] = _base_url
                 else:
                     logger.debug(f"{self.plugin_msg}: force_source {_base_url}")
