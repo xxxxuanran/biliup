@@ -42,6 +42,8 @@ class Bililive(DownloadBase):
 
     async def acheck_stream(self, is_check=False):
 
+        print(self.fname, self.url, "开始检测")
+
         if "b23.tv" in self.url:
             try:
                 resp = await client.get(self.url, follow_redirects=False)
@@ -76,7 +78,7 @@ class Bililive(DownloadBase):
             room_info = await client.get(info_by_room_url, headers=self.fake_headers)
             room_info = room_info.json()
         except Exception as e:
-            logger.error(f"{self.plugin_msg}: {e}")
+            logger.error(f"{self.plugin_msg}: {e}", exc_info=True)
             return False
         if room_info['code'] != 0:
             logger.error(f"{self.plugin_msg}: {room_info}")

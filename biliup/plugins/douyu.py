@@ -22,6 +22,10 @@ class Douyu(DownloadBase):
         self.douyu_rate = config.get('douyu_rate', 0)
 
     async def acheck_stream(self, is_check=False):
+
+        print(self.fname, self.url, "开始检测")
+
+
         if len(self.url.split("douyu.com/")) < 2:
             logger.error(f"{self.plugin_msg}: 直播间地址错误")
             return False

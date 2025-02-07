@@ -100,6 +100,8 @@ class EventManager(Thread):
     def send_event(self, event):
         """发送事件，向事件队列中存入事件"""
         self.__eventQueue.put(event)
+        print("当前事件队列长度", self.__eventQueue.qsize())
+        print("当前 pool Asynchronous1 存在任务数", self._pool.get('Asynchronous1'))
 
     def register(self, type_, block=False):
         classname = inspect.getouterframes(inspect.currentframe())[1][3]

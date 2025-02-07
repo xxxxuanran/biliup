@@ -13,7 +13,7 @@ logger = logging.getLogger('biliup')
 
 
 def create_event_manager():
-    pool1_size = config.get('pool1_size', 5)
+    pool1_size = config.get('pool1_size', 1)
     pool2_size = config.get('pool2_size', 3)
     pool = {
         'Asynchronous1': ThreadPoolExecutor(pool1_size, thread_name_prefix='Asynchronous1'),
@@ -57,10 +57,23 @@ async def shot(event):
             continue
         cur = event.url_list[index]
         try:
-            await singleton_check(event, context['PluginInfo'].inverted_index[cur], cur)
+            downloading_count = sum(context['PluginInfo'].url_status.values())
+            # 跳过开播检测
+            need_skip = (
+                # 下载任务数已满，跳过开播检测
+                downloading_count >= config.get('pool1_size', 1)
+            )
+            if not need_skip:
+                await singleton_check(event, context['PluginInfo'].inverted_index[cur], cur)
             index += 1
-            skip = context['PluginInfo'].url_status[cur] == 1 and index < len(event.url_list)
-            if skip:  # 全部主播检测后不应跳过
+            # 跳过等待延迟
+            need_skip = (
+                # 如果不是最后一个任务，可以跳过
+                index < len(event.url_list) and
+                # 如果当前任务正在下载中，应当跳过
+                context['PluginInfo'].url_status[cur] == 1
+            )
+            if need_skip:
                 continue
         except Exception:
             logger.exception('shot')

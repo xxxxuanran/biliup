@@ -246,17 +246,25 @@ class DownloadBase(ABC):
 
             args = ['ffmpeg', '-y', *input_args, *output_args,
                     f'{fmt_file_name}.{self.suffix}.part']
-            with subprocess.Popen(args, stdin=subprocess.DEVNULL if not streamlink_proc else streamlink_proc.stdout,
-                                  stdout=subprocess.PIPE, stderr=subprocess.STDOUT) as proc:
-                # with SessionLocal() as db:
-                #     update_file_list(db, self.database_row_id, fmt_file_name)
-                #     updatedFileList = True
-                for line in iter(proc.stdout.readline, b''):  # b'\n'-separated lines
-                    decode_line = line.rstrip().decode(errors='ignore')
-                    print(decode_line)
-                    logger.debug(decode_line)
 
-            if proc.returncode == 0:
+            stop_signal = False
+            ffmpeg_proc = subprocess.Popen(args, stdin=subprocess.DEVNULL if not streamlink_proc else streamlink_proc.stdout,
+                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+            while not stop_signal:
+                # for line in iter(ffmpeg_proc.stdout.readline):  # b'\n'-separated lines
+                # decode_line = iter(ffmpeg_proc.stdout.readline())
+                # print(ffmpeg_proc.stdout.readline())
+                # logger.debug(decode_line)
+                pass
+            else:
+                try:
+                    ffmpeg_proc.terminate()
+                    ffmpeg_proc.wait(timeout=5)
+                    ffmpeg_proc.kill()
+                finally:
+                    pass
+
+            if ffmpeg_proc.returncode == 0:
                 # 文件重命名
                 self.download_file_rename(f'{fmt_file_name}.{self.suffix}.part', f'{fmt_file_name}.{self.suffix}')
                 # 触发分段事件
@@ -264,10 +272,6 @@ class DownloadBase(ABC):
                 return True
             else:
                 return False
-        # except:
-        #     if updatedFileList:
-        #         with SessionLocal() as db:
-        #             delete_file_list(db, self.database_row_id, None)
         finally:
             try:
                 if streamlink_proc:

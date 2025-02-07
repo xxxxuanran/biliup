@@ -124,16 +124,6 @@ async def cookie_login(request):
     return web.json_response({"status": 200})
 
 
-# async def sms_login(request):
-#     pass
-
-
-# async def sms_send(request):
-#     # post_data = await request.json()
-
-#     pass
-
-
 def check_similar_remark(json_data):
     '''
     :return: True if similar remark exists

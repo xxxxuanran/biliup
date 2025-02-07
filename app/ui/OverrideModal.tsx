@@ -61,7 +61,7 @@ const OverrideModal: React.FC<TemplateModalProps> = ({ children, entity, onOk })
         return Plugin as React.ComponentType<PluginProps>
       }
     }
-    // console.log('未匹配到平台')
+    console.log('未匹配到平台', entity?.url)
     return null
   }
 
@@ -281,7 +281,7 @@ const OverrideModal: React.FC<TemplateModalProps> = ({ children, entity, onOk })
             ]}
           />
           <Form.Section>
-            <Collapse defaultActiveKey={['plugin']}>
+            <Collapse>
               {downloadSettings}
               {(() => {
                 const Plugin = platformSetting()
