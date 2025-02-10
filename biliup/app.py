@@ -32,18 +32,20 @@ event_manager = create_event_manager()
 context = event_manager.context
 
 
-async def singleton_check(platform, name, url):
+async def singleton_check(platform, name, url, action: str):
     from biliup.handler import PRE_DOWNLOAD, UPLOAD
     context['url_upload_count'].setdefault(url, 0)
-    if context['PluginInfo'].url_status[url] == 1:
-        logger.debug(f'{url} 正在下载中，跳过检测')
-        return
-
-    event_manager.send_event(Event(UPLOAD, ({'name': name, 'url': url},)))
-    if await platform(name, url).acheck_stream(True) and platform(name, url).pre_check():
-        # 需要等待上传文件列表检索完成后才可以开始下次下载
-        with NamedLock(f'upload_file_list_{name}'):
-            event_manager.send_event(Event(PRE_DOWNLOAD, args=(name, url,)))
+    if action == UPLOAD:
+        if context['PluginInfo'].url_status[url] == 1:
+            logger.debug(f'{url} 正在下载中，跳过检测')
+            return
+        event_manager.send_event(Event(UPLOAD, ({'name': name, 'url': url},)))
+    if action == PRE_DOWNLOAD:
+        stream_info = await platform(name, url).acheck_stream(True)
+        if stream_info:
+            # 需要等待上传文件列表检索完成后才可以开始下次下载
+            with NamedLock(f'upload_file_list_{name}'):
+                event_manager.send_event(Event(PRE_DOWNLOAD, args=(name, url,)))
 
 
 async def shot(event):
@@ -57,7 +59,9 @@ async def shot(event):
             continue
         cur = event.url_list[index]
         try:
-            await singleton_check(event, context['PluginInfo'].inverted_index[cur], cur)
+            from biliup.handler import PRE_DOWNLOAD, UPLOAD
+            await singleton_check(event, context['PluginInfo'].inverted_index[cur], cur, action=UPLOAD)
+            await singleton_check(event, context['PluginInfo'].inverted_index[cur], cur, action=PRE_DOWNLOAD)
             index += 1
             skip = context['PluginInfo'].url_status[cur] == 1 and index < len(event.url_list)
             if skip:  # 全部主播检测后不应跳过
@@ -122,18 +126,31 @@ class PluginInfo:
             self.coroutines[key] = asyncio.create_task(shot(plugin))
 
     def batch_check_task(self, plugin):
-        from biliup.handler import PRE_DOWNLOAD
+        from biliup.handler import UPLOAD, PRE_DOWNLOAD
 
         async def check_timer():
-            name = None
-            # 如果支持批量检测
             try:
-                async for turl in plugin.abatch_check(plugin.url_list):
-                    context['url_upload_count'].setdefault(turl, 0)
-                    for k, v in config['streamers'].items():
-                        if v.get("url", "") == turl:
-                            name = k
-                    event_manager.send_event(Event(PRE_DOWNLOAD, args=(name, turl,)))
+                # 构建 url -> name 的映射
+                url_to_name = {v['url']: k for k, v in config['streamers'].items()}
+
+                for url in plugin.url_list:
+                    context['url_upload_count'].setdefault(url, 0)
+
+                # 收集所有需要下载的 URL
+                download_urls = set()
+                async for is_open_url in plugin.abatch_check(plugin.url_list):
+                    download_urls.add(is_open_url)
+                    name = url_to_name.get(is_open_url)
+                    if name:
+                        with NamedLock(f'upload_file_list_{name}'):
+                            event_manager.send_event(Event(PRE_DOWNLOAD, args=(name, is_open_url,)))
+
+                # 对未开播的 URL 发送上传事件
+                for url in set(plugin.url_list) - download_urls:
+                    name = url_to_name.get(url)
+                    if name:
+                        event_manager.send_event(Event(UPLOAD, args=({'name': name, 'url': url},)))
+
             except Exception:
                 logger.exception('batch_check_task')
 

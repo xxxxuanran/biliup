@@ -4,6 +4,7 @@ import re
 import asyncio
 
 from biliup.common.util import client
+from biliup.common.filter import Filter
 from biliup.config import config
 from . import match1, logger
 from biliup.Danmaku import DanmakuClient
@@ -100,7 +101,11 @@ class Bililive(DownloadBase):
             is_new_live = False
 
         if is_check:
-            return True
+            self.filters = [
+                {"key": "title", "operator": "contains", "value": "test", "logic": "and"},
+                {"key": "title", "operator": "contains", "value": "test", "logic": "null"}
+            ]
+            return Filter(self.filters).check(self.get_check_obj())
         else:
             self.__login_mid = await self.check_login_status()
 

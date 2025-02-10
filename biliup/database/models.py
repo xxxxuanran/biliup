@@ -148,6 +148,7 @@ class LiveStreamers(BaseModel):
     uploadstreamers: Mapped[UploadStreamers] = relationship(back_populates="livestreamers")
     format: Mapped[str] = mapped_column(nullable=True)  # 视频格式
     override = mapped_column(JSON(), nullable=True)  # 覆写配置
+    filters = mapped_column(JSON(), nullable=True)  # 过滤配置
     preprocessor = mapped_column(JSON(), nullable=True)  # 开始下载直播时触发
     segment_processor = mapped_column(JSON(), nullable=True)  # 分段时触发
     downloaded_processor = mapped_column(JSON(), nullable=True)  # 准备上传直播时触发

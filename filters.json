@@ -1,0 +1,1 @@
+[{"key":"title","operator":"contains","value":"test","logic":"and"},{"key":"title","operator":"contains","value":"test","logic":"or"}]

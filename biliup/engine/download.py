@@ -17,6 +17,7 @@ import requests
 from requests.utils import DEFAULT_ACCEPT_ENCODING
 from httpx import HTTPStatusError
 
+from biliup.common.filter import Filter
 from biliup.common.util import client, loop, check_timerange
 from biliup.database.db import add_stream_info, SessionLocal, get_stream_info, update_cover_path, update_room_title, update_file_list
 from biliup.plugins import random_user_agent
@@ -82,6 +83,12 @@ class DownloadBase(ABC):
 
         self.plugin_msg = f"[{self.__class__.__name__}]{self.fname} - {url}"
 
+        self.filters = (
+            config.get('filters')
+            or
+            config.get('streamers', {}).get(self.fname, {}).get('filters')
+        )
+
     @abstractmethod
     async def acheck_stream(self, is_check=False):
         # is_check 是否是检测模式 检测模式可以忽略只有下载时需要的耗时操作
@@ -90,6 +97,10 @@ class DownloadBase(ABC):
     def pre_check(self):
         if check_timerange(self.fname):
             return True
+
+    def check_filter(self):
+        print(self)
+        return Filter(self.fname).check()
 
     def download(self):
         logger.info(f"{self.plugin_msg}: Start downloading {self.raw_stream_url}")
@@ -226,7 +237,7 @@ class DownloadBase(ABC):
                 input_uri = self.raw_stream_url
 
             input_args += ['-i', input_uri]
-
+            from biliup.common.util import get_duration
             duration = get_duration(self.segment_time, self.time_range)
             if duration:
                 output_args += ['-to', duration]
@@ -491,6 +502,12 @@ class DownloadBase(ABC):
     def close(self):
         pass
 
+    def get_check_obj(self) -> dict:
+        return {
+            'room_title': self.room_title,
+            'time_range': self.time_range,
+        }
+
 
 def stream_gears_download(url, headers, file_name, segment_time=None, file_size=None,
                           file_name_callback: Callable[[str], None] = None):
@@ -577,43 +594,6 @@ def get_valid_filename(name):
     if s in {"", ".", ".."}:
         raise RuntimeError("Could not derive file name from '%s'" % name)
     return s
-
-
-def get_duration(segment_time_str, time_range):
-    """
-    计算当前时间到给定结束时间的时差
-    如果计算的时差大于segment_time，则返回segment_time。
-    """
-    if not time_range or '-' not in time_range:
-        return segment_time_str
-    end_time_str = time_range.split('-')[1]
-
-    now = datetime.now()
-    end_time_today_str = now.strftime("%Y-%m-%d") + " " + end_time_str
-    end_time_today = datetime.strptime(end_time_today_str, "%Y-%m-%d %H:%M:%S")
-    # 判断结束时间是否是第二天的时间
-    if now > end_time_today:
-        end_time_today += timedelta(days=1)
-
-    time_diff = end_time_today - now
-    if segment_time_str:
-        segment_time_parts = list(map(int, segment_time_str.split(":")))
-        segment_time = timedelta(hours=segment_time_parts[0],
-                                 minutes=segment_time_parts[1], seconds=segment_time_parts[2])
-
-        if time_diff > segment_time:
-            return segment_time_str
-
-    # 增加10s，防止time_diff过小多次执行下载
-    if time_diff.total_seconds() <= 60:
-        time_diff = time_diff + timedelta(seconds=10)
-
-    hours, remainder = divmod(time_diff.total_seconds(), 3600)
-    minutes, seconds = divmod(remainder, 60)
-
-    to_parameter = f"{int(hours):02}:{int(minutes):02}:{int(seconds):02}"
-
-    return to_parameter
 
 
 class BatchCheck(ABC):
