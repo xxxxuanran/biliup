@@ -1,7 +1,7 @@
 import time
 import json
 import re
-import asyncio
+from typing import List, Dict, Set
 
 from biliup.common.util import client
 from biliup.config import config
@@ -10,6 +10,7 @@ from biliup.Danmaku import DanmakuClient
 from ..engine.decorators import Plugin
 from ..engine.download import DownloadBase
 
+from dataclasses import dataclass
 
 OFFICIAL_API = "https://api.live.bilibili.com"
 STREAM_NAME_REGEXP = r"/live-bvc/\d+/(live_[^/\.]+)"
@@ -31,7 +32,7 @@ class Bililive(DownloadBase):
         self.bili_hls_timeout = config.get('bili_hls_transcode_timeout', 60)
         self.bili_api_list = [
             normalize_url(config.get('bili_liveapi', OFFICIAL_API)).rstrip('/'),
-            normalize_url(config.get('bili_fallback_api', OFFICIAL_API)).rstrip('/'),
+            normalize_url(config.get('bili_fallback_api', "https://biliapi.eula.uk")).rstrip('/'),
         ]
         self.bili_force_source = config.get('bili_force_source', False)
         self.bili_anonymous_origin = config.get('bili_anonymous_origin', False)
@@ -39,6 +40,8 @@ class Bililive(DownloadBase):
         self.bili_normalize_cn204 = config.get('bili_normalize_cn204', False)
         self.cn01_sids = config.get('bili_replace_cn01', [])
         self.bili_cdn_fallback = config.get('bili_cdn_fallback', False)
+
+        self.bili_qn_v2: List[str] = config.get('bili_qn_v2', ['10000', 'avc10000', 'hevc10000'])
 
     async def acheck_stream(self, is_check=False):
 
@@ -92,7 +95,7 @@ class Bililive(DownloadBase):
         self.room_title = room_info['room_info']['title']
         self.__real_room_id = room_info['room_info']['room_id']
         live_start_time = room_info['room_info']['live_start_time']
-        special_type = room_info['room_info']['special_type'] # 0: 公开直播, 1: 大航海专属
+        special_type = room_info['room_info']['special_type'] # 0: 公开直播, 1: 付费直播（大航海、演唱会）
         if live_start_time > self.live_start_time:
             self.live_start_time = live_start_time
             is_new_live = True
@@ -117,7 +120,7 @@ class Bililive(DownloadBase):
                 self.raw_stream_url = None
 
 
-        stream_urls = await self.aget_stream(self.bili_qn, self.bili_protocol, special_type)
+        stream_urls = await self.aget_stream(self.bili_qn_v2, self.bili_protocol, special_type)
         if not stream_urls:
             if self.bili_protocol == 'hls_fmp4':
                 if int(time.time()) - live_start_time <= self.bili_hls_timeout:
@@ -218,91 +221,124 @@ class Bililive(DownloadBase):
             )
 
 
-    async def get_play_info(self, api: str, qn: int = 10000) -> dict:
+    async def get_room_play_info(self, api: str, qn: int) -> dict:
         full_url = f"{api}/xlive/web-room/v2/index/getRoomPlayInfo"
         params = {
             'room_id': self.__real_room_id,
             'protocol': '0,1',  # 流协议，0: http_stream(flv), 1: http_hls
-            'format': '0,1,2',  # 编码格式，0: flv, 1: ts, 2: fmp4
-            'codec': '0',  # 编码器，0: avc, 1: hevc, 2: av1
+            'format': '0,2',  # 编码格式，0: flv, 1: ts, 2: fmp4
+            'codec': '0,1',  # 编码器，0: avc, 1: hevc, 2: av1
             'qn': qn,
             'platform': 'html5',  # 平台名称，web, html5, android, ios
             # 'ptype': '8', # P2P配置，-1: disable, 8: WebRTC, 8192: MisakaTunnel
             'dolby': '5', # 杜比格式，5: 杜比音频
             # 'panorama': '1', # 全景(不支持 html5)
+            # 'hdr_type': '0,1', # HDR类型(不支持 html5)，0: SDR, 1: PQ
+            # 'req_reason': '0', # 请求原因，0: Normal, 1: PlayError
             # 'http': '1', # 优先 http 协议
         }
         try:
-            api_res = await client.get(
+            _res = await client.get(
                 full_url, params=params, headers=self.fake_headers
             )
-            api_res = json.loads(api_res.text)
-            if api_res['code'] != 0:
-                logger.error(f"{self.plugin_msg}: {api} 返回内容错误: {api_res}")
-                return {}
-            return api_res['data']
+            _res = json.loads(_res.text)
+            return check_areablock(_res)
         except json.JSONDecodeError:
-            logger.error(f"{self.plugin_msg}: {api} 返回内容错误: {api_res.text}")
+            logger.error(f"{self.plugin_msg}: {api} 返回内容错误: {_res.text}")
         except Exception as e:
             logger.error(f"{self.plugin_msg}: {api} 获取 play_info 失败 -> {e}", exc_info=True)
         return {}
 
-    async def get_master_m3u8(self, api: str) -> dict:
-        full_url = f"{api}/live-bvc/master.m3u8"
+    async def get_master_m3u8(self, api: str, stream_name: str) -> dict:
+        full_url = f"{api}/xlive/web-room/v2/index/master_playurl"
         params = {
             "cid": self.__real_room_id,
             "mid": self.__login_mid,
-            "pt": "html5", # platform
+            "pt": "web", # platform
             # "p2p_type": "-1",
+            # "net": "0",
+            # "free_type": "0",
+            # "build": "0",
+            # "feature": "0",
+            "stream_name": stream_name, # 用于筛选编码器
         }
         try:
-            m3u8_res = await client.get(
+            _res = await client.get(
                 full_url, params=params, headers=self.fake_headers
             )
-            if m3u8_res.status_code == 200 and m3u8_res.text.startswith("#EXTM3U"):
-                return self.parse_master_m3u8(m3u8_res.text)
+            if not _res.text.startswith("#EXTM3U") or True:
+                raise Exception("Invalid m3u8 file", _res.text)
+            return self.parse_master_m3u8(_res.text)
         except Exception as e:
             logger.error(f"{self.plugin_msg}: {api} 获取 m3u8 失败 -> {e}", exc_info=True)
         return {}
 
-    async def aget_stream(self, qn: int = 10000, protocol: str = 'stream', special_type: int = 0) -> dict:
+    async def aget_stream(
+        self,
+        qn_v2: List[str],
+        protocol: str = 'stream',
+        special_type: int = 0
+    ) -> dict:
         """
-        :param qn: 目标画质
+        :param qn_v2: 带编码器的画质列表
         :param protocol: 流协议
         :param special_type: 特殊直播类型
         :return: 流信息
         """
-        stream_urls = {}
+        def parse_qn_v2(qn_v2: List[str]) -> Dict[int, List[StreamCodec]]:
+            qn_v2_dict = {}
+            for i in qn_v2:
+                if i.isdigit():
+                    qn_v2_dict.setdefault(int(i), [0])
+                else:
+                    codec = StreamCodec.hevc if i.startswith('hevc') else StreamCodec.avc
+                    qn = int(match1(i, r'(\d+)'))
+                    qn_v2_dict.setdefault(qn, [])
+                    if codec not in qn_v2_dict[qn]:
+                        qn_v2_dict[qn].append(codec)
+            return qn_v2_dict
+        qn_v2_dict = parse_qn_v2(qn_v2)
+        first_qn = next(iter(qn_v2_dict.keys()))
+        acc_codec_with_qn = {}
         for api in self.bili_api_list:
-            play_info = await self.get_play_info(api, qn)
-            if not play_info or check_areablock(play_info):
-                # logger.error(f"{self.plugin_msg}: {api} 返回内容错误: {play_info}")
-                continue
-            streams = play_info['playurl_info']['playurl']['stream']
-            if protocol == 'hls_fmp4':
-                if self.bili_anonymous_origin:
-                    if special_type in play_info['all_special_types'] and not self.__login_mid:
-                        logger.warn(f"{self.plugin_msg}: 特殊直播{special_type}")
+            info = await self.get_room_play_info(api, 20000)
+            if info:
+                # 当首选画质不为 原画/4K 时
+                if first_qn not in {10000, 20000} or True:
+                    # 预检
+                    stream = info['playurl_info']['playurl']['stream']
+                    if 'hls' in protocol and len(stream) > 1:
+                        stream = stream[1]
                     else:
-                        stream_urls = await self.get_master_m3u8(api)
-                        if stream_urls:
-                            break
-                # 处理 API 信息
-                stream = streams[1] if len(streams) > 1 else streams[0]
-                for format in stream['format']:
-                    if format['format_name'] == 'fmp4':
-                        stream_urls = self.parse_stream_url(format['codec'][0])
-                        # fmp4 可能没有原画
-                        if qn == 10000 and qn in stream_urls.keys():
-                            break
-                        else:
-                            stream_urls = {}
-            else:
-                stream_urls = self.parse_stream_url(streams[0]['format'][0]['codec'][0])
-            if stream_urls:
+                        stream = stream[0]
+                    codecs = stream['format'][0]['codec']
+                    for codec in codecs:
+                        acc_codec_with_qn[codec['codec_name']] = codec['accept_qn']
                 break
-        # 空字典照常返回，重试交给上层方法处理
-        return stream_urls
+        else:
+            logger.error(f"{self.plugin_msg}: 所有 API 均不可用")
+            raise Exception("Failed to get room play info")
+        req_qn, req_codecs = next(iter(qn_v2_dict.items()))
+        streams = info['playurl_info']['playurl']['stream']
+        stream = streams[1] if 'hls' in protocol and len(streams) > 1 else streams[0]
+        # 没有请求 ts 格式流，只需要使用首个 format
+        cur_format = stream['format'][0]
+        # 如果 length 为 1，则使用首个 codec
+        if len(cur_format['codec']) == 1:
+            cur_codec = cur_format['codec'][0]
+            # 检查 current_qn 是否符合 req_qn
+            if cur_codec['current_qn'] != req_qn:
+                # 检查 qn_v2 是否有任意一项符合 accept_qn
+                if any(accept_qn in qn_v2_dict.keys() for accept_qn in cur_codec['accept_qn']):
+                    return await self.aget_stream(qn_v2, protocol, special_type)
+                else:
+                    logger.error(f"{self.plugin_msg}: 当前编码器 {cur_codec['codec_name']} 不支持请求画质 {req_qn}")
+            # 检查是否符合 req_codecs
+            if StreamCodec[cur_codec['codec_name']] in req_codecs:
+                pass
+        else:
+            cur_codec = cur_format['codec'][req_codecs[0]]
+        return {}
 
     async def check_login_status(self) -> int:
         """
@@ -313,7 +349,7 @@ class Bililive(DownloadBase):
             _res = await client.get('https://api.bilibili.com/x/web-interface/nav', headers=self.fake_headers)
             user_data = json.loads(_res.text).get('data', {})
             if user_data.get('isLogin'):
-                logger.info(f"用户名：{user_data['uname']}, mid：{user_data['mid']}, isLogin：{user_data['isLogin']}")
+                logger.info(f"用户名: {user_data['uname']}, mid: {user_data['mid']}")
                 return user_data['mid']
             else:
                 logger.warning(f"{self.plugin_msg}: 未登录，或将只能录制到最低画质。")
@@ -364,15 +400,17 @@ class Bililive(DownloadBase):
     def parse_master_m3u8(self, m3u8_content: str) -> dict:
         """
         Returns:
-            {
-                "qn值": {
-                    "cdn名称": {
-                        "url": parsed_stream_url,
-                        "stream_name": "流名称",
-                        "suffix": "二压后缀"
+        {
+            "qn画质": {
+                "codec编码器": {
+                    "stream_name": "流名称",
+                    "suffix": "二压后缀",
+                    "urls": {
+                        "cdn名称": "CDN流链接",
                     }
                 }
             }
+        }
         """
         lines = m3u8_content.strip().splitlines()
         current_qn = None
@@ -402,13 +440,20 @@ class Bililive(DownloadBase):
 # Copy from room-player.js
 def check_areablock(data):
     '''
-    :return: True if area block
+    :return: data['data']
     '''
-    if not data['playurl_info']['playurl']:
+    if data['code'] == 60005:
         logger.error('Sorry, bilibili is currently not available in your country according to copyright restrictions.')
         logger.error('非常抱歉，根据版权方要求，您所在的地区无法观看本直播')
-        return True
-    return False
+        raise Exception("AreaBlock")
+    return data['data']
 
 def normalize_url(url: str) -> str:
     return url if url.startswith(('http://', 'https://')) else 'http://' + url
+
+
+@dataclass
+class StreamCodec:
+    avc = 0
+    hevc = 1
+    av1 = 2

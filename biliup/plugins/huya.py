@@ -20,8 +20,7 @@ HUYA_MOBILE_BASE_URL = "https://m.huya.com"
 class Huya(DownloadBase):
     def __init__(self, fname, url, suffix='flv'):
         super().__init__(fname, url, suffix)
-        self.fake_headers['referer'] = url
-        # self.fake_headers['cookie'] = config.get('user', {}).get('huya_cookie', '')
+        self.fake_headers['Referer'] = url
         self.__room_id = url.split('huya.com/')[1].split('?')[0]
         self.huya_danmaku = config.get('huya_danmaku', False)
         self.huya_max_ratio = config.get('huya_max_ratio', 0)
@@ -171,7 +170,7 @@ class Huya(DownloadBase):
             stream_name = stream_name.replace('-imgplus', '')
         anti_code = anti_code + "&codec=264" \
                     if is_xingxiu else \
-                    self.__build_query(stream_name, anti_code, _get_uid(self.fake_headers['cookie'], stream_name))
+                    self.__build_query(stream_name, anti_code, _get_uid(stream_name))
         for stream in stream_info:
             # 优先级<0代表不可用
             priority = stream['iWebPriorityRate']
@@ -248,10 +247,8 @@ def _weight_sorting(data: dict, weights: dict) -> dict:
     return {}
 
 
-def _get_uid(cookie: str, stream_name: str) -> int:
+def _get_uid(stream_name) -> int:
     try:
-        if cookie and "yyuid=" in cookie:
-            return int(match1(r'yyuid=(\d+)', cookie))
         if stream_name:
             anchor_uid = int(stream_name.split('-')[0])
             if anchor_uid > 0:
