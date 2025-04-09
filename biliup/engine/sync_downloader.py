@@ -88,6 +88,7 @@ class SyncDownloader:
                     err = ffmpeg_proc.stderr.read()
                     if err:
                         logger.error("[run] ffmpeg err " + err.decode("utf-8", errors="replace"))
+                    ffmpeg_proc.kill()
                     return False
                 self.put_data(data)
                 while True:
@@ -120,8 +121,6 @@ class SyncDownloader:
                     if not data:  # 如果第一个数据为空
                         # logger.info("[run] ffmpeg 没有输出数据，返回 False")
                         logger.info(f"{self.__temp_file_name} ffmpeg 没有数据")
-                        streamlink_proc.kill()  # 终止 streamlink 进程
-                        ffmpeg_proc.kill()  # 终止 ffmpeg 进程
                         # 打印错误输出
                         ffmpeg_err = ffmpeg_proc.stderr.read()
                         if ffmpeg_err:
@@ -129,6 +128,8 @@ class SyncDownloader:
                         streamlink_err = streamlink_proc.stderr.read()
                         if streamlink_err:
                             logger.error("[run] streamlink err " + streamlink_err.decode("utf-8", errors="replace"))
+                        streamlink_proc.kill()  # 终止 streamlink 进程
+                        ffmpeg_proc.kill()  # 终止 ffmpeg 进程
                         return False
                     self.put_data(data)
                     # 继续读取剩余数据
@@ -143,6 +144,7 @@ class SyncDownloader:
                 ffmpeg_proc.kill()
                 # ffmpeg_proc.wait()
                 logger.info(f"{self.__temp_file_name}: 写入结束 chunk-{self.chunk}")
+                self.readed_size = 0
                 self.chunk = 0
                 # logger.info("[run] ffmpeg 已到达输出大小并退出。结束本段写入。")
                 # 打印 ffmpeg 子进程的错误输出
@@ -204,6 +206,7 @@ class SyncDownloader:
             # print(f"\n[run] ========== 准备录制第 {file_index} 段：{output_filename} ==========")
             # logging.info(f"\n[run] == 当前下载流地址：{self.stream_url} ==")
             logger.info(f"\n[run] == 准备录制第 {file_index} 段：{output_filename} ==")
+            # logger.info(f"{output_filename} 启动时队列大小-{self.video_queue.qsize()}")
             self.__temp_file_name = output_filename
             output_filename = "-"
             is_hls = '.m3u8' in urlparse(self.stream_url).path
