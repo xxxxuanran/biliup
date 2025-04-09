@@ -69,6 +69,14 @@ class SyncDownloader:
         self.video_queue: queue.SimpleQueue = video_queue
         self.stop_event = threading.Event()
 
+    def put_data(self, data):
+        self.video_queue.put(data)
+        self.readed_size += len(data)
+        if self.readed_size >= self.min_size:
+            self.chunk += 1
+            self.readed_size -= self.min_size
+            logger.info(f"{self.__temp_file_name}: 写入 chunk-{self.chunk}")
+
     def run_ffmpeg_with_url(self, ffmpeg_cmd, output_filename):
         with subprocess.Popen(ffmpeg_cmd, stderr=subprocess.PIPE, stdout=subprocess.PIPE) as ffmpeg_proc:
             # logger.info("[run] 启动 ffmpeg...")
@@ -81,20 +89,14 @@ class SyncDownloader:
                     if err:
                         logger.error("[run] ffmpeg err " + err.decode("utf-8", errors="replace"))
                     return False
-                self.video_queue.put(data)  # 将第一个数据放入队列
-                self.readed_size += len(data)
+                self.put_data(data)
                 while True:
                     data = ffmpeg_proc.stdout.read(self.read_block_size)
                     if not data:
                         # logger.info("[run] ffmpeg stdout 已到达 EOF。结束本段写入。")
                         logger.info(f"{self.__temp_file_name} ffmpeg 正常结束")
                         break
-                    self.video_queue.put(data)
-                    self.readed_size += len(data)
-                    if self.readed_size >= self.min_size:
-                        self.chunk += 1
-                        self.readed_size -= self.min_size
-                        logger.info(f"{self.__temp_file_name}: 写入 chunk-{self.chunk}")
+                    self.put_data(data)
             # 强制结束 ffmpeg 进程
             ffmpeg_proc.kill()
             # ffmpeg_proc.wait()
@@ -128,8 +130,7 @@ class SyncDownloader:
                         if streamlink_err:
                             logger.error("[run] streamlink err " + streamlink_err.decode("utf-8", errors="replace"))
                         return False
-                    self.video_queue.put(data)  # 将第一个数据放入队列
-                    self.readed_size += len(data)
+                    self.put_data(data)
                     # 继续读取剩余数据
                     while True:
                         data = ffmpeg_proc.stdout.read(self.read_block_size)
@@ -137,12 +138,7 @@ class SyncDownloader:
                             # logger.info("[run] ffmpeg stdout 已到达 EOF。结束本段写入。")
                             logger.info(f"{self.__temp_file_name} ffmpeg 正常结束")
                             break
-                        self.video_queue.put(data)
-                        self.readed_size += len(data)
-                        if self.readed_size >= self.min_size:
-                            self.chunk += 1
-                            self.readed_size -= self.min_size
-                            logger.info(f"{self.__temp_file_name}: 写入 chunk-{self.chunk}")
+                        self.put_data(data)
                 # 强制结束 ffmpeg 进程
                 ffmpeg_proc.kill()
                 # ffmpeg_proc.wait()
@@ -213,7 +209,7 @@ class SyncDownloader:
             is_hls = '.m3u8' in urlparse(self.stream_url).path
             if not is_hls:
                 # print("[run] 输入源不是 HLS 地址，将直接使用 ffmpeg 进行录制。", self.stream_url)
-                logger.info("[run] 输入源不是 HLS 地址，将直接使用 ffmpeg 进行录制。")
+                # logger.info("[run] 输入源不是 HLS 地址，将直接使用 ffmpeg 进行录制。")
                 ffmpeg_cmd = self.build_ffmpeg_cmd(self.stream_url, output_filename,
                                                    self.headers, self.segment_duration)
                 if not self.run_ffmpeg_with_url(ffmpeg_cmd, output_filename):
@@ -222,7 +218,7 @@ class SyncDownloader:
                     continue
             else:
                 # print("[run] 输入源是 HLS 地址，将使用 streamlink + ffmpeg 进行录制。")
-                logger.info("[run] 输入源是 HLS 地址，将使用 streamlink + ffmpeg 进行录制。")
+                # logger.info("[run] 输入源是 HLS 地址，将使用 streamlink + ffmpeg 进行录制。")
                 if self.headers:
                     headers = []
                     for key, value in self.headers.items():
