@@ -77,7 +77,7 @@ class BiliWebAsync(UploadBase):
 
     def upload(self, total_size: int, stop_event: threading.Event, output_prefix: str, file_name_callback: Callable[[str], None] = None, database_row_id=0) -> List[UploadBase.FileInfo]:
         # print("开始同步上传")
-        logger.info(f"开始同步上传 {database_row_id}")
+        # logger.info(f"开始同步上传 {database_row_id}")
         file_index = 1
         videos = Data()
         bili = BiliBili(videos)
@@ -120,7 +120,7 @@ class BiliWebAsync(UploadBase):
             #     stop_event.set()
             #     break
 
-            file_name = f"{output_prefix}_{file_index}.mkv"
+            file_name = f"{output_prefix}_{file_index:03d}.mkv"
 
             # if file_name_callback:
             # file_name_callback(file_name)
@@ -238,7 +238,7 @@ class BiliBili:
     def login(self, persistence_path, user_cookie):
         self.persistence_path = user_cookie
         if os.path.isfile(user_cookie):
-            print('使用持久化内容上传')
+            # print('使用持久化内容上传')
             self.load()
         if self.cookies:
             try:
@@ -268,7 +268,7 @@ class BiliBili:
                        }, f)
 
     def login_by_password(self, username, password):
-        print('使用账号上传')
+        # print('使用账号上传')
         key_hash, pub_key = self.get_key()
         encrypt_password = base64.b64encode(rsa.encrypt(f'{key_hash}{password}'.encode(), pub_key))
         payload = {
@@ -314,7 +314,7 @@ class BiliBili:
         data = self.__session.get("https://api.bilibili.com/x/web-interface/nav", timeout=5).json()
         if data["code"] != 0:
             raise Exception(data)
-        print('使用cookies上传')
+        # print('使用cookies上传')
 
     def sign(self, param):
         return hashlib.md5(f"{param}{self.appsec}".encode()).hexdigest()
@@ -344,7 +344,7 @@ class BiliBili:
             start = time.perf_counter()
             test = self.__session.request(method, f"https:{line['probe_url']}", data=data, timeout=30)
             cost = time.perf_counter() - start
-            print(line['query'], cost)
+            # print(line['query'], cost)
             if test.status_code != 200:
                 return
             if not min_cost or min_cost > cost:
@@ -365,7 +365,7 @@ class BiliBili:
             submit_api: Callable[[str], None] = None
     ):
 
-        logger.info(f"{file_name} 开始上传")
+        # logger.info(f"{file_name} 开始上传")
         if self.save_dir:
             self.save_path = os.path.join(self.save_dir, file_name)
         cs_upcdn = ['alia', 'bda', 'bda2', 'bldsa', 'qn', 'tx', 'txa']
@@ -383,7 +383,7 @@ class BiliBili:
                 preferred_upos_cdn = lines
             else:
                 self._auto_os = self.probe()
-            logger.info(f"线路选择 => {self._auto_os['os']}: {self._auto_os['query']}. time: {self._auto_os.get('cost')}")
+            # logger.info(f"线路选择 => {self._auto_os['os']}: {self._auto_os['query']}. time: {self._auto_os.get('cost')}")
         if self._auto_os['os'] == 'upos':
             upload = self.upos_stream
         else:
@@ -445,98 +445,101 @@ class BiliBili:
             file_name_callback(self.save_path)
 
     async def upos_stream(self, stream_queue, file_name, total_size, ret):
-        async with asyncio.Lock():
-            chunk_size = ret['chunk_size']
-            auth = ret["auth"]
-            endpoint = ret["endpoint"]
-            biz_id = ret["biz_id"]
-            upos_uri = ret["upos_uri"]
-            url = f"https:{endpoint}/{upos_uri.replace('upos://', '')}"  # 视频上传路径
-            headers = {
-                "X-Upos-Auth": auth
-            }
-            # 向上传地址申请上传，得到上传id等信息
-            upload_id = self.__session.post(f'{url}?uploads&output=json', timeout=15,
-                                            headers=headers).json()["upload_id"]
-            # 开始上传
-            parts = []  # 分块信息
-            chunks = math.ceil(total_size / chunk_size)  # 获取分块数量
+        # async with asyncio.Lock():
+        chunk_size = ret['chunk_size']
+        auth = ret["auth"]
+        endpoint = ret["endpoint"]
+        biz_id = ret["biz_id"]
+        upos_uri = ret["upos_uri"]
+        url = f"https:{endpoint}/{upos_uri.replace('upos://', '')}"  # 视频上传路径
+        headers = {
+            "X-Upos-Auth": auth
+        }
+        # 向上传地址申请上传，得到上传id等信息
+        upload_id = self.__session.post(f'{url}?uploads&output=json', timeout=15,
+                                        headers=headers).json()["upload_id"]
+        # 开始上传
+        parts = []  # 分块信息
+        chunks = math.ceil(total_size / chunk_size)  # 获取分块数量
 
-            start = time.perf_counter()
+        start = time.perf_counter()
 
-            # print("-----------")
-            # print(upload_id, chunks, chunk_size, total_size)
-            logger.info(
-                f"{file_name} - upload_id: {upload_id}, chunks: {chunks}, chunk_size: {chunk_size}, total_size: {total_size}")
-            n = 0
-            st = time.perf_counter()
-            max_workers = 3
-            semaphore = threading.Semaphore(max_workers)
-            with ThreadPoolExecutor(max_workers=max_workers) as executor:
-                futures = []
-                for index, chunk in enumerate(self.queue_reader_generator(stream_queue, chunk_size, total_size)):
-                    if not chunk:
-                        break
-                    const_time = time.perf_counter() - st
-                    speed = len(chunk) * 8 / 1024 / 1024 / const_time
-                    logger.info(f"{file_name} - chunks-({index+1}/{chunks}) - down - speed: {speed:.2f}Mbps")
-                    n += len(chunk)
-                    params = {
-                        'uploadId': upload_id,
-                        'chunks': chunks,
-                        'total': total_size,
-                        'chunk': index,
-                        'size': chunk_size,
-                        'partNumber': index + 1,
-                        'start': index * chunk_size,
-                        'end': index * chunk_size + chunk_size
-                    }
-                    params_clone = params.copy()
-                    semaphore.acquire()
-                    future = executor.submit(self.upload_chunk_thread,
-                                            url, chunk, params_clone, headers, file_name)
-                    future.add_done_callback(lambda x: semaphore.release())
-                    futures.append(future)
-                    st = time.perf_counter()
+        # print("-----------")
+        # print(upload_id, chunks, chunk_size, total_size)
+        # logger.info(
+        #     f"{file_name} - upload_id: {upload_id}, chunks: {chunks}, chunk_size: {chunk_size}, total_size: {total_size}")
+        logger.info(f"\n>>>>> 开始为文件 {file_name} 创建线程池进行分块上传，块大小：{chunk_size}，总块数：{chunks} <<<<<")
+        n = 0
+        st = time.perf_counter()
+        max_workers = config.get('threads', 3)
+        semaphore = threading.Semaphore(max_workers)
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = []
+            for index, chunk in enumerate(self.queue_reader_generator(stream_queue, chunk_size, total_size)):
+                if not chunk:
+                    break
+                const_time = time.perf_counter() - st
+                speed = len(chunk) * 8 / 1024 / 1024 / const_time
+                # print(f"{file_name}: 下载 chunks-({index+1}/{chunks})")
+                logger.info(f"{file_name}: 读取 chunk-({index+1}/{chunks})")
+                # logger.info(f"{file_name} - chunks-({index+1}/{chunks}) - down - speed: {speed:.2f}Mbps")
+                n += len(chunk)
+                params = {
+                    'uploadId': upload_id,
+                    'chunks': chunks,
+                    'total': total_size,
+                    'chunk': index,
+                    'size': chunk_size,
+                    'partNumber': index + 1,
+                    'start': index * chunk_size,
+                    'end': index * chunk_size + chunk_size
+                }
+                params_clone = params.copy()
+                semaphore.acquire()
+                future = executor.submit(self.upload_chunk_thread,
+                                        url, chunk, params_clone, headers, file_name)
+                future.add_done_callback(lambda x: semaphore.release())
+                futures.append(future)
+                st = time.perf_counter()
 
-                    for f in list(futures):
-                        if f.done():
-                            futures.remove(f)
+                for f in list(futures):
+                    if f.done():
+                        futures.remove(f)
 
-                    # 等待所有分片上传完成，并按顺序收集结果
-                for future in concurrent.futures.as_completed(futures):
-                    pass
+                # 等待所有分片上传完成，并按顺序收集结果
+            for future in concurrent.futures.as_completed(futures):
+                pass
 
-                results = [{
-                    "partNumber": i + 1,
-                    "eTag": "etag"
-                } for i in range(chunks)]
-                parts.extend(results)
+            results = [{
+                "partNumber": i + 1,
+                "eTag": "etag"
+            } for i in range(chunks)]
+            parts.extend(results)
 
-            if n == 0:
-                return None
-            logger.info(f"{file_name} - total_size: {total_size}, n: {n}")
-            cost = time.perf_counter() - start
-            p = {
-                'name': file_name,
-                'uploadId': upload_id,
-                'biz_id': biz_id,
-                'output': 'json',
-                'profile': 'ugcupos/bup'
-            }
-            attempt = 1
-            while attempt <= 3:  # 一旦放弃就会丢失前面所有的进度，多试几次吧
-                try:
-                    r = self.__session.post(url, params=p, json={"parts": parts}, headers=headers, timeout=15).json()
-                    if r.get('OK') == 1:
-                        logger.info(f'{file_name} uploaded >> {total_size / 1000 / 1000 / cost:.2f}MB/s. {r}')
-                        return {"title": splitext(file_name)[0], "filename": splitext(basename(upos_uri))[0], "desc": ""}
-                    raise IOError(r)
-                except IOError:
-                    logger.info(f"请求合并分片 {file_name} 时出现问题，尝试重连，次数：" + str(attempt))
-                    attempt += 1
-                    time.sleep(10)
-            pass
+        if n == 0:
+            return None
+        logger.info(f"{file_name} - total_size: {total_size}, n: {n}")
+        cost = time.perf_counter() - start
+        p = {
+            'name': file_name,
+            'uploadId': upload_id,
+            'biz_id': biz_id,
+            'output': 'json',
+            'profile': 'ugcupos/bup'
+        }
+        attempt = 1
+        while attempt <= 3:  # 一旦放弃就会丢失前面所有的进度，多试几次吧
+            try:
+                r = self.__session.post(url, params=p, json={"parts": parts}, headers=headers, timeout=15).json()
+                if r.get('OK') == 1:
+                    logger.info(f'{file_name} uploaded >> {total_size / 1000 / 1000 / cost:.2f}MB/s. {r}')
+                    return {"title": splitext(file_name)[0], "filename": splitext(basename(upos_uri))[0], "desc": ""}
+                raise IOError(r)
+            except IOError:
+                logger.info(f"请求合并分片 {file_name} 时出现问题，尝试重连，次数：" + str(attempt))
+                attempt += 1
+                time.sleep(10)
+        pass
 
     def upload_chunk_thread(self, url, chunk, params_clone, headers, file_name, max_retries=3, backoff_factor=1):
         st = time.perf_counter()
@@ -549,9 +552,10 @@ class BiliBili:
                 if r.status_code == 200:
                     const_time = time.perf_counter() - st
                     speed = len(chunk) * 8 / 1024 / 1024 / const_time
-                    logger.info(
-                        f"{file_name} - chunks-{params_clone['chunk'] +1 } - up status: {r.status_code} - speed: {speed:.2f}Mbps"
-                    )
+                    logger.info(f"{file_name}: 上传 chunk-{ params_clone['chunk'] +1 }")
+                    # logger.info(
+                    #     f"{file_name} - chunks-{params_clone['chunk'] +1 } - up status: {r.status_code} - speed: {speed:.2f}Mbps"
+                    # )
                     return {
                         "partNumber": params_clone['chunk'] + 1,
                         "eTag": "etag"
@@ -621,13 +625,13 @@ class BiliBili:
                     chunks_yielded += 1
                     remaining_chunks -= 1
                 break
-                logger.info(f"还差 {remaining_chunks} 个完整包")
+                # logger.info(f"还差 {remaining_chunks} 个完整包")
 
-                # 输出剩余的全0块
-                for _ in range(remaining_chunks):
-                    yield b'\x00' * chunk_size
-                    chunks_yielded += 1
-                break
+                # # 输出剩余的全0块
+                # for _ in range(remaining_chunks):
+                #     yield b'\x00' * chunk_size
+                #     chunks_yielded += 1
+                # break
 
             save_file and save_file.write(data)
 
