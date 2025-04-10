@@ -75,9 +75,11 @@ class BiliWebAsync(UploadBase):
         self.user_cookie = user_cookie
         self.video_queue: queue.SimpleQueue = video_queue
 
+        self.__submit_lock = threading.Lock()
+
     def upload(self, total_size: int, stop_event: threading.Event, output_prefix: str, file_name_callback: Callable[[str], None] = None, database_row_id=0) -> List[UploadBase.FileInfo]:
         # print("开始同步上传")
-        # logger.info(f"开始同步上传 {database_row_id}")
+        logger.info(f"开始同步上传，database_row_id={database_row_id}")
         file_index = 1
         videos = Data()
         bili = BiliBili(videos)
@@ -113,53 +115,89 @@ class BiliWebAsync(UploadBase):
         videos.open_elec = self.open_elec
 
         thread_list = []
-        while True:
-            # 调试使用 分p 强制停止
-            # if file_index > 10:
-            #     logger.info(f"[consumer debug] 停止下载回调")
-            #     stop_event.set()
-            #     break
+        completion_status = {}  # 用于跟踪每个线程的完成状态
 
-            file_name = f"{output_prefix}_{file_index:03d}.mkv"
-
-            # if file_name_callback:
-            # file_name_callback(file_name)
-            data_size = 0
-            video_upload_queue = queue.SimpleQueue()
-
-            t = threading.Thread(target=bili.upload_stream, args=(video_upload_queue,
-                                 file_name, total_size, self.lines, videos, stop_event, file_name_callback), daemon=True, name=f"upload_{file_index}")
-            thread_list.append(t)
-            t.start()
-
+        try:
             while True:
+                # 调试使用 分p 强制停止
+                # if file_index > 10:
+                #     logger.info(f"[consumer debug] 停止下载回调")
+                #     stop_event.set()
+                #     break
+
+                file_name = f"{output_prefix}_{file_index:03d}.mkv"
+
+                # if file_name_callback:
+                # file_name_callback(file_name)
+                data_size = 0
+                video_upload_queue = queue.SimpleQueue()
+
+                t = threading.Thread(target=bili.upload_stream, args=(video_upload_queue,
+                                    file_name, total_size, self.lines, videos, stop_event, file_name_callback), daemon=True, name=f"upload_{file_index}")
+                thread_list.append(t)
+                completion_status[t.name] = False  # 初始化为未完成
+                logger.info(f"创建上传线程 {t.name} 用于文件 {file_name}")
+                t.start()
+
+                while True:
+                    try:
+                        data = self.video_queue.get(timeout=10)
+                    except queue.Empty:
+                        break
+
+                    if data is None:
+                        video_upload_queue.put(None)
+                        break
+
+                    video_upload_queue.put(data)
+                    # print(video_upload_queue.empty())
+                    data_size += len(data)
+                # print(f"[consumer] 读取 {file_name} {data_size} 字节")
+                logger.info(f"[consumer] 读取 {file_name} {data_size} 字节")
+                file_index += 1
+                # print("[consumer] bili.video.videos", bili.video.videos)
+                logger.info(f"[consumer] bili.video.videos {bili.video.videos}")
+                if data_size < 100:
+                    # print(f"[consumer] 停止下载回调")
+                    # n = video_upload_queue.get()
+                    logger.info(f"[consumer] {file_name} 停止下载回调")
+                    stop_event.set()
+                    break
+
+            # 修改此处 - 确保等待所有上传线程结束
+            logger.info("正在等待所有上传线程完成，包括文件上传和submit操作...")
+            for i, t in enumerate(thread_list):
+                logger.info(f"等待第 {i+1}/{len(thread_list)} 个上传线程 {t.name} 完成")
                 try:
-                    data = self.video_queue.get(timeout=10)
-                except queue.Empty:
-                    break
+                    # 等待线程完成，最多等待10分钟
+                    t.join(timeout=600)
+                    if t.is_alive():
+                        logger.warning(f"线程 {t.name} 在10分钟后仍未完成，继续等待...")
+                        # 继续等待，直到完成
+                        t.join()
+                    completion_status[t.name] = True
+                    logger.info(f"第 {i+1}/{len(thread_list)} 个上传线程 {t.name} 已完成")
+                except Exception as e:
+                    logger.error(f"等待线程 {t.name} 完成时发生错误: {str(e)}")
 
-                if data is None:
-                    video_upload_queue.put(None)
-                    break
+            # 检查是否所有线程都完成了
+            all_completed = all(completion_status.values())
+            if all_completed:
+                logger.info("所有上传及提交操作已成功完成")
+            else:
+                incomplete_threads = [name for name, status in completion_status.items() if not status]
+                logger.warning(f"部分线程未能正确完成: {incomplete_threads}")
 
-                video_upload_queue.put(data)
-                # print(video_upload_queue.empty())
-                data_size += len(data)
-            # print(f"[consumer] 读取 {file_name} {data_size} 字节")
-            logger.info(f"[consumer] 读取 {file_name} {data_size} 字节")
-            file_index += 1
-            # print("[consumer] bili.video.videos", bili.video.videos)
-            logger.info(f"[consumer] bili.video.videos {bili.video.videos}")
-            if data_size < 100:
-                # print(f"[consumer] 停止下载回调")
-                # n = video_upload_queue.get()
-                logger.info(f"[consumer] 停止下载回调")
-                stop_event.set()
-                break
-
-        logger.info("等待上传线程结束")
-        for t in thread_list:
-            t.join()
+        except Exception as e:
+            logger.error(f"上传过程中发生错误: {str(e)}")
+            # 确保停止所有操作
+            stop_event.set()
+            # 确保等待所有线程
+            for t in thread_list:
+                if t.is_alive():
+                    logger.info(f"等待线程 {t.name} 结束")
+                    t.join(timeout=10)
+            raise  # 重新抛出异常
 
         # ret = bili.submit(self.submit_api)  # 提交视频
         # logger.info(f"上传成功: {ret}")
@@ -417,10 +455,12 @@ class BiliBili:
                         break
                 else:
                     logger.warning(f"选择的线路 {self._auto_os['os']} 没有返回对应 endpoint，不做修改")
+
+        logger.info(f"文件 {file_name} 开始执行上传操作")
         video_part = asyncio.run(upload(stream_queue, file_name, total_size, ret))
         if video_part is None:
             stop_event.set()
-            # print("异常流 直接退出")
+            logger.info(f"文件 {file_name} 上传失败，退出")
             return
         video_part['title'] = video_part['title'][:80]
 
@@ -431,18 +471,32 @@ class BiliBili:
 
         videos.append(video_part)  # 添加已经上传的视频
         edit = False if videos.aid is None else True
-        ret = self.submit(submit_api=submit_api, edit=edit, videos=videos)
-        # logger.info(f"上传成功: {ret}")
-        if edit:
-            logger.info(f"编辑添加成功: {ret}")
-        else:
-            logger.info(f"上传成功: {ret}")
-        aid = ret['data']['aid']
-        videos.aid = aid
-        context['sync_downloader_map'][str(self.database_row_id)] = videos.__dict__
-        logger.info(f"上传完成 {file_name} {context['sync_downloader_map'][str(self.database_row_id)] }")
-        if file_name_callback:
-            file_name_callback(self.save_path)
+
+        logger.info(f"文件 {file_name} 已上传完成，正在执行提交操作...")
+        try:
+            # 使用类实例的锁对象，确保所有线程共享同一个锁
+            logger.info(f"文件 {file_name} 正在请求提交锁")
+            with self.__submit_lock:
+                logger.info(f"文件 {file_name} 已获得提交锁，开始提交")
+                ret = self.submit(submit_api=submit_api, edit=edit, videos=videos)
+                if edit:
+                    logger.info(f"{file_name} 编辑添加成功: {ret}")
+                else:
+                    logger.info(f"{file_name} 上传成功: {ret}")
+                aid = ret['data']['aid']
+                videos.aid = aid
+                context['sync_downloader_map'][str(self.database_row_id)] = videos.__dict__
+                logger.info(f"文件 {file_name} 上传和提交全部完成，aid={aid}")
+                if file_name_callback:
+                    file_name_callback(self.save_path)
+                logger.info(f"文件 {file_name} 已释放提交锁")
+        except Exception as e:
+            logger.error(f"文件 {file_name} 提交过程中发生错误: {str(e)}")
+            # 如果提交过程中出错，设置停止事件，通知其他线程停止
+            stop_event.set()
+            raise  # 重新抛出异常，确保线程终止并且外部能够捕获到错误
+
+        logger.info(f"文件 {file_name} 的线程即将结束")
 
     async def upos_stream(self, stream_queue, file_name, total_size, ret):
         # async with asyncio.Lock():
@@ -468,13 +522,14 @@ class BiliBili:
         # print(upload_id, chunks, chunk_size, total_size)
         # logger.info(
         #     f"{file_name} - upload_id: {upload_id}, chunks: {chunks}, chunk_size: {chunk_size}, total_size: {total_size}")
-        logger.info(f"\n>>>>> 开始为文件 {file_name} 创建线程池进行分块上传，块大小：{chunk_size}，总块数：{chunks} <<<<<")
+        logger.info(f"\n>>>>> 开始为文件 {file_name} 创建线程池进行分块上传，块大小：{chunk_size}，总块数：{chunks}，线程ID: {threading.current_thread().ident} <<<<<")
         n = 0
         st = time.perf_counter()
         max_workers = config.get('threads', 3)
         semaphore = threading.Semaphore(max_workers)
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             futures = []
+            logger.info(f"文件 {file_name} 的线程池已创建，max_workers={max_workers}")
             for index, chunk in enumerate(self.queue_reader_generator(stream_queue, chunk_size, total_size)):
                 if not chunk:
                     break
@@ -507,6 +562,7 @@ class BiliBili:
                         futures.remove(f)
 
                 # 等待所有分片上传完成，并按顺序收集结果
+            logger.info(f"文件 {file_name} 的所有分块已提交到线程池，等待它们完成...")
             for future in concurrent.futures.as_completed(futures):
                 pass
 
@@ -515,8 +571,10 @@ class BiliBili:
                 "eTag": "etag"
             } for i in range(chunks)]
             parts.extend(results)
+            logger.info(f"文件 {file_name} 的线程池任务已全部完成")
 
         if n == 0:
+            logger.error(f"文件 {file_name} 无有效数据上传")
             return None
         logger.info(f"{file_name} - total_size: {total_size}, n: {n}")
         cost = time.perf_counter() - start
@@ -528,20 +586,25 @@ class BiliBili:
             'profile': 'ugcupos/bup'
         }
         attempt = 1
+        logger.info(f"文件 {file_name} 开始请求合并所有分片...")
         while attempt <= 3:  # 一旦放弃就会丢失前面所有的进度，多试几次吧
             try:
                 r = self.__session.post(url, params=p, json={"parts": parts}, headers=headers, timeout=15).json()
                 if r.get('OK') == 1:
-                    logger.info(f'{file_name} uploaded >> {total_size / 1000 / 1000 / cost:.2f}MB/s. {r}')
+                    logger.info(f'{file_name} 分片合并成功 >> {total_size / 1000 / 1000 / cost:.2f}MB/s. {r}')
                     return {"title": splitext(file_name)[0], "filename": splitext(basename(upos_uri))[0], "desc": ""}
                 raise IOError(r)
             except IOError:
                 logger.info(f"请求合并分片 {file_name} 时出现问题，尝试重连，次数：" + str(attempt))
                 attempt += 1
                 time.sleep(10)
-        pass
+        logger.error(f"文件 {file_name} 合并分片失败，已重试3次")
+        return None
 
     def upload_chunk_thread(self, url, chunk, params_clone, headers, file_name, max_retries=3, backoff_factor=1):
+        thread_id = threading.current_thread().ident
+        chunk_num = params_clone['chunk'] + 1
+        logger.info(f"开始上传 {file_name} 的分块 {chunk_num}/{params_clone['chunks']} (线程ID: {thread_id})")
         st = time.perf_counter()
         retries = 0
         while retries < max_retries:
@@ -552,7 +615,7 @@ class BiliBili:
                 if r.status_code == 200:
                     const_time = time.perf_counter() - st
                     speed = len(chunk) * 8 / 1024 / 1024 / const_time
-                    logger.info(f"{file_name}: 上传 chunk-{ params_clone['chunk'] +1 }")
+                    logger.info(f"{file_name}: 上传 chunk-{chunk_num} 成功 (线程ID: {thread_id})")
                     # logger.info(
                     #     f"{file_name} - chunks-{params_clone['chunk'] +1 } - up status: {r.status_code} - speed: {speed:.2f}Mbps"
                     # )
@@ -565,7 +628,7 @@ class BiliBili:
                 else:
                     retries += 1
                     logger.warning(
-                        f"{file_name} - chunks-{params_clone['chunk']} - up failed: {r.status_code}. Retrying {retries}/{max_retries}")
+                        f"{file_name} - chunks-{chunk_num} - 上传失败 (线程ID: {thread_id}): 状态码 {r.status_code}，正在重试 {retries}/{max_retries}")
 
                     # 计算退避时间，逐步增加重试间隔
                     backoff_time = backoff_factor ** retries
@@ -573,14 +636,14 @@ class BiliBili:
 
             except Exception as e:
                 retries += 1
-                logger.error(f"upload_chunk_thread err {str(e)}. Retrying {retries}/{max_retries}")
+                logger.error(f"{file_name} - chunks-{chunk_num} - 上传异常 (线程ID: {thread_id}): {str(e)}，正在重试 {retries}/{max_retries}")
 
                 # 计算退避时间，逐步增加重试间隔
                 backoff_time = backoff_factor ** retries
                 time.sleep(backoff_time)
 
         # 如果重试了所有次数仍然失败，记录错误
-        logger.error(f"{file_name} - chunks-{params_clone['chunk']} - Upload failed after {max_retries} attempts.")
+        logger.error(f"{file_name} - chunks-{chunk_num} - 上传失败 (线程ID: {thread_id})：已重试 {max_retries} 次，放弃上传")
         return None
 
     def queue_reader_generator(self, simple_queue: queue.SimpleQueue, chunk_size: int, max_size: int):

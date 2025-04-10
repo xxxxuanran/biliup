@@ -101,8 +101,11 @@ class SyncDownloader:
             # 强制结束 ffmpeg 进程
             ffmpeg_proc.kill()
             # ffmpeg_proc.wait()
+            if self.readed_size > 0:
+                self.chunk += 1
             logger.info(f"{self.__temp_file_name}: 写入结束 chunk-{self.chunk}")
             self.chunk = 0
+            self.readed_size = 0
             # 输出 ffmpeg 的错误信息（如果有的话）
             # err = ffmpeg_proc.stderr.read()
             # if err:
