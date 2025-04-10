@@ -153,11 +153,13 @@ class BiliWebAsync(UploadBase):
                     # print(video_upload_queue.empty())
                     data_size += len(data)
                 # print(f"[consumer] 读取 {file_name} {data_size} 字节")
+                min_size = config.get('filtering_threshold', 0)
+                min_size = int(min_size) * 1024 * 1024
                 logger.info(f"[consumer] 读取 {file_name} {data_size} 字节")
                 file_index += 1
                 # print("[consumer] bili.video.videos", bili.video.videos)
                 logger.info(f"[consumer] bili.video.videos {bili.video.videos}")
-                if data_size < 100:
+                if data_size < min_size:
                     # print(f"[consumer] 停止下载回调")
                     # n = video_upload_queue.get()
                     logger.info(f"[consumer] {file_name} 停止下载回调")
@@ -266,6 +268,8 @@ class BiliBili:
             os.makedirs(self.save_dir)
 
         self.database_row_id = 0
+
+        self.__submit_lock = threading.Lock()
 
     def myinfo(self, cookies: dict = None):
         if cookies:
