@@ -50,3 +50,4 @@ _internal
 pnpm-lock.yaml
 cookies.json
 .augment/
+.cunzhi-memory/

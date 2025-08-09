@@ -34,7 +34,7 @@ class Huya:
 
         import base64
         ws_user_info = HuyaWSUserInfo()
-        ws_user_info.iUid = uid
+        ws_user_info.lUid = uid
         ws_user_info.bAnonymous = False
         ws_user_info.lGroupId = uid
         ws_user_info.lGroupType = 3

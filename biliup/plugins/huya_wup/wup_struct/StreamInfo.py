@@ -1,8 +1,14 @@
 from biliup.common.tars import tarscore
+from ..packet.__util import auto_decode_fields
 
+@auto_decode_fields
 class HuyaStreamInfo(tarscore.struct):
 
     __tars_class__ = "Huya.StreamInfo"
+
+    # 定义类级别的复合类型
+    vctcls_string = tarscore.vctclass(tarscore.string)
+    mapcls_string_string = tarscore.mapclass(tarscore.string, tarscore.string)
 
     def __init__(self):
         self.sCdnType: tarscore.string = ""
@@ -22,6 +28,17 @@ class HuyaStreamInfo(tarscore.struct):
         self.iPCPriorityRate: tarscore.int32 = 0
         self.iWebPriorityRate: tarscore.int32 = 0
         self.iMobilePriorityRate: tarscore.int32 = 0
+        self.vFlvIPList = HuyaStreamInfo.vctcls_string()
+        self.iIsP2PSupport: tarscore.int32 = 0
+        self.sP2pUrl: tarscore.string = ""
+        self.sP2pUrlSuffix: tarscore.string = ""
+        self.sP2pAntiCode: tarscore.string = ""
+        self.lFreeFlag: tarscore.int64 = 0
+        self.iIsHEVCSupport: tarscore.int32 = 0
+        self.vP2pIPList = HuyaStreamInfo.vctcls_string()
+        self.mpExtArgs = HuyaStreamInfo.mapcls_string_string()
+        self.lTimespan: tarscore.int64 = 0
+        self.lUpdateTime: tarscore.int64 = 0
 
     @staticmethod
     def writeTo(oos: tarscore.TarsOutputStream, value):
@@ -42,6 +59,17 @@ class HuyaStreamInfo(tarscore.struct):
         oos.write(tarscore.int32, 14, value.iPCPriorityRate)
         oos.write(tarscore.int32, 15, value.iWebPriorityRate)
         oos.write(tarscore.int32, 16, value.iMobilePriorityRate)
+        oos.write(HuyaStreamInfo.vctcls_string, 17, value.vFlvIPList)
+        oos.write(tarscore.int32, 18, value.iIsP2PSupport)
+        oos.write(tarscore.string, 19, value.sP2pUrl)
+        oos.write(tarscore.string, 20, value.sP2pUrlSuffix)
+        oos.write(tarscore.string, 21, value.sP2pAntiCode)
+        oos.write(tarscore.int64, 22, value.lFreeFlag)
+        oos.write(tarscore.int32, 23, value.iIsHEVCSupport)
+        oos.write(HuyaStreamInfo.vctcls_string, 24, value.vP2pIPList)
+        oos.write(HuyaStreamInfo.mapcls_string_string, 25, value.mpExtArgs)
+        oos.write(tarscore.int64, 26, value.lTimespan)
+        oos.write(tarscore.int64, 27, value.lUpdateTime)
 
     @staticmethod
     def readFrom(ios: tarscore.TarsInputStream):
@@ -63,6 +91,17 @@ class HuyaStreamInfo(tarscore.struct):
         value.iPCPriorityRate = ios.read(tarscore.int32, 14, False)
         value.iWebPriorityRate = ios.read(tarscore.int32, 15, False)
         value.iMobilePriorityRate = ios.read(tarscore.int32, 16, False)
+        value.vFlvIPList = ios.read(HuyaStreamInfo.vctcls_string, 17, False)
+        value.iIsP2PSupport = ios.read(tarscore.int32, 18, False)
+        value.sP2pUrl = ios.read(tarscore.string, 19, False)
+        value.sP2pUrlSuffix = ios.read(tarscore.string, 20, False)
+        value.sP2pAntiCode = ios.read(tarscore.string, 21, False)
+        value.lFreeFlag = ios.read(tarscore.int64, 22, False)
+        value.iIsHEVCSupport = ios.read(tarscore.int32, 23, False)
+        value.vP2pIPList = ios.read(HuyaStreamInfo.vctcls_string, 24, False)
+        value.mpExtArgs = ios.read(HuyaStreamInfo.mapcls_string_string, 25, False)
+        value.lTimespan = ios.read(tarscore.int64, 26, False)
+        value.lUpdateTime = ios.read(tarscore.int64, 27, False)
         return value
 
 

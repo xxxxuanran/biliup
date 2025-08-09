@@ -1,11 +1,19 @@
 from biliup.common.tars import tarscore
 from .StreamInfo import HuyaStreamInfo
 from .MultiStreamInfo import HuyaMultiStreamInfo
+from ..packet.__util import auto_decode_fields
 
 
+@auto_decode_fields
 class HuyaBeginLiveNotice(tarscore.struct):
 
-    __tars_class__ = "Huya.BeginLiveNotice"
+    __tars_class__ = "HUYA.BeginLiveNotice"
+
+    # 定义类级别的复合类型
+    vctcls_streaminfo = tarscore.vctclass(HuyaStreamInfo)
+    vctcls_string = tarscore.vctclass(tarscore.string)
+    vctcls_multistreaminfo = tarscore.vctclass(HuyaMultiStreamInfo)
+    mapcls_string_string = tarscore.mapclass(tarscore.string, tarscore.string)
 
     def __init__(self):
         self.lPresenterUid: tarscore.int64 = 0
@@ -13,8 +21,8 @@ class HuyaBeginLiveNotice(tarscore.struct):
         self.sGameName: tarscore.string = ""
         self.iRandomRange: tarscore.int32 = 0
         self.iStreamType: tarscore.int32 = 0
-        self.vStreamInfo: tarscore.vector = tarscore.vector(HuyaStreamInfo) # FIXME
-        self.vCdnList: tarscore.vector = tarscore.vector(tarscore.string) # FIXME
+        self.vStreamInfo = HuyaBeginLiveNotice.vctcls_streaminfo()
+        self.vCdnList = HuyaBeginLiveNotice.vctcls_string()
         self.lLiveId: tarscore.int64 = 0
         self.iPCDefaultBitRate: tarscore.int32 = 0
         self.iWebDefaultBitRate: tarscore.int32 = 0
@@ -25,7 +33,7 @@ class HuyaBeginLiveNotice(tarscore.struct):
         self.lAttendeeCount: tarscore.int64 = 0
         self.iCodecType: tarscore.int32 = 0
         self.iScreenType: tarscore.int32 = 0
-        self.vMultiStreamInfo: tarscore.vector = tarscore.vector(HuyaMultiStreamInfo) # FIXME
+        self.vMultiStreamInfo = HuyaBeginLiveNotice.vctcls_multistreaminfo()
         self.sLiveDesc: tarscore.string = ""
         self.lLiveCompatibleFlag: tarscore.int64 = 0
         self.sAvatarUrl: tarscore.string = ""
@@ -36,6 +44,18 @@ class HuyaBeginLiveNotice(tarscore.struct):
         self.lChannelId: tarscore.int64 = 0
         self.lSubChannelId: tarscore.int64 = 0
         self.sLocation: tarscore.string = ""
+        self.iCdnPolicyLevel: tarscore.int32 = 0
+        self.iGameType: tarscore.int32 = 0
+        self.mMiscInfo = HuyaBeginLiveNotice.mapcls_string_string()
+        self.iShortChannel: tarscore.int32 = 0
+        self.iRoomId: tarscore.int32 = 0
+        self.bIsRoomSecret: tarscore.int32 = 0
+        self.iHashPolicy: tarscore.int32 = 0
+        self.lSignChannel: tarscore.int64 = 0
+        self.iMobileWifiDefaultBitRate: tarscore.int32 = 0
+        self.iEnableAutoBitRate: tarscore.int32 = 0
+        self.iTemplate: tarscore.int32 = 0
+        self.iReplay: tarscore.int32 = 0
 
     @staticmethod
     def writeTo(oos: tarscore.TarsOutputStream, value):
@@ -44,8 +64,8 @@ class HuyaBeginLiveNotice(tarscore.struct):
         oos.write(tarscore.string, 2, value.sGameName)
         oos.write(tarscore.int32, 3, value.iRandomRange)
         oos.write(tarscore.int32, 4, value.iStreamType)
-        oos.write(tarscore.vector, 5, value.vStreamInfo)
-        oos.write(tarscore.vector, 6, value.vCdnList)
+        oos.write(HuyaBeginLiveNotice.vctcls_streaminfo, 5, value.vStreamInfo)
+        oos.write(HuyaBeginLiveNotice.vctcls_string, 6, value.vCdnList)
         oos.write(tarscore.int64, 7, value.lLiveId)
         oos.write(tarscore.int32, 8, value.iPCDefaultBitRate)
         oos.write(tarscore.int32, 9, value.iWebDefaultBitRate)
@@ -56,7 +76,7 @@ class HuyaBeginLiveNotice(tarscore.struct):
         oos.write(tarscore.int64, 14, value.lAttendeeCount)
         oos.write(tarscore.int32, 15, value.iCodecType)
         oos.write(tarscore.int32, 16, value.iScreenType)
-        oos.write(tarscore.vector, 17, value.vMultiStreamInfo)
+        oos.write(HuyaBeginLiveNotice.vctcls_multistreaminfo, 17, value.vMultiStreamInfo)
         oos.write(tarscore.string, 18, value.sLiveDesc)
         oos.write(tarscore.int64, 19, value.lLiveCompatibleFlag)
         oos.write(tarscore.string, 20, value.sAvatarUrl)
@@ -67,6 +87,18 @@ class HuyaBeginLiveNotice(tarscore.struct):
         oos.write(tarscore.int64, 25, value.lChannelId)
         oos.write(tarscore.int64, 26, value.lSubChannelId)
         oos.write(tarscore.string, 27, value.sLocation)
+        oos.write(tarscore.int32, 28, value.iCdnPolicyLevel)
+        oos.write(tarscore.int32, 29, value.iGameType)
+        oos.write(HuyaBeginLiveNotice.mapcls_string_string, 30, value.mMiscInfo)
+        oos.write(tarscore.int32, 31, value.iShortChannel)
+        oos.write(tarscore.int32, 32, value.iRoomId)
+        oos.write(tarscore.int32, 33, value.bIsRoomSecret)
+        oos.write(tarscore.int32, 34, value.iHashPolicy)
+        oos.write(tarscore.int64, 35, value.lSignChannel)
+        oos.write(tarscore.int32, 36, value.iMobileWifiDefaultBitRate)
+        oos.write(tarscore.int32, 37, value.iEnableAutoBitRate)
+        oos.write(tarscore.int32, 38, value.iTemplate)
+        oos.write(tarscore.int32, 39, value.iReplay)
 
     @staticmethod
     def readFrom(ios: tarscore.TarsInputStream):
@@ -76,8 +108,8 @@ class HuyaBeginLiveNotice(tarscore.struct):
         value.sGameName = ios.read(tarscore.string, 2, False)
         value.iRandomRange = ios.read(tarscore.int32, 3, False)
         value.iStreamType = ios.read(tarscore.int32, 4, False)
-        value.vStreamInfo = ios.read(tarscore.vector, 5, False)
-        value.vCdnList = ios.read(tarscore.vector, 6, False)
+        value.vStreamInfo = ios.read(HuyaBeginLiveNotice.vctcls_streaminfo, 5, False)
+        value.vCdnList = ios.read(HuyaBeginLiveNotice.vctcls_string, 6, False)
         value.lLiveId = ios.read(tarscore.int64, 7, False)
         value.iPCDefaultBitRate = ios.read(tarscore.int32, 8, False)
         value.iWebDefaultBitRate = ios.read(tarscore.int32, 9, False)
@@ -88,7 +120,7 @@ class HuyaBeginLiveNotice(tarscore.struct):
         value.lAttendeeCount = ios.read(tarscore.int64, 14, False)
         value.iCodecType = ios.read(tarscore.int32, 15, False)
         value.iScreenType = ios.read(tarscore.int32, 16, False)
-        value.vMultiStreamInfo = ios.read(tarscore.vector, 17, False)
+        value.vMultiStreamInfo = ios.read(HuyaBeginLiveNotice.vctcls_multistreaminfo, 17, False)
         value.sLiveDesc = ios.read(tarscore.string, 18, False)
         value.lLiveCompatibleFlag = ios.read(tarscore.int64, 19, False)
         value.sAvatarUrl = ios.read(tarscore.string, 20, False)
@@ -99,36 +131,16 @@ class HuyaBeginLiveNotice(tarscore.struct):
         value.lChannelId = ios.read(tarscore.int64, 25, False)
         value.lSubChannelId = ios.read(tarscore.int64, 26, False)
         value.sLocation = ios.read(tarscore.string, 27, False)
+        value.iCdnPolicyLevel = ios.read(tarscore.int32, 28, False)
+        value.iGameType = ios.read(tarscore.int32, 29, False)
+        value.mMiscInfo = ios.read(HuyaBeginLiveNotice.mapcls_string_string, 30, False)
+        value.iShortChannel = ios.read(tarscore.int32, 31, False)
+        value.iRoomId = ios.read(tarscore.int32, 32, False)
+        value.bIsRoomSecret = ios.read(tarscore.int32, 33, False)
+        value.iHashPolicy = ios.read(tarscore.int32, 34, False)
+        value.lSignChannel = ios.read(tarscore.int64, 35, False)
+        value.iMobileWifiDefaultBitRate = ios.read(tarscore.int32, 36, False)
+        value.iEnableAutoBitRate = ios.read(tarscore.int32, 37, False)
+        value.iTemplate = ios.read(tarscore.int32, 38, False)
+        value.iReplay = ios.read(tarscore.int32, 39, False)
         return value
-
-    def as_dict(self):
-        return {
-            "lPresenterUid": self.lPresenterUid,
-            "iGameId": self.iGameId,
-            "sGameName": self.sGameName,
-            "iRandomRange": self.iRandomRange,
-            "iStreamType": self.iStreamType,
-            "vStreamInfo": self.vStreamInfo,
-            "vCdnList": self.vCdnList,
-            "lLiveId": self.lLiveId,
-            "iPCDefaultBitRate": self.iPCDefaultBitRate,
-            "iWebDefaultBitRate": self.iWebDefaultBitRate,
-            "iMobileDefaultBitRate": self.iMobileDefaultBitRate,
-            "lMultiStreamFlag": self.lMultiStreamFlag,
-            "sNick": self.sNick,
-            "lYYId": self.lYYId,
-            "lAttendeeCount": self.lAttendeeCount,
-            "iCodecType": self.iCodecType,
-            "iScreenType": self.iScreenType,
-            "vMultiStreamInfo": self.vMultiStreamInfo,
-            "sLiveDesc": self.sLiveDesc,
-            "lLiveCompatibleFlag": self.lLiveCompatibleFlag,
-            "sAvatarUrl": self.sAvatarUrl,
-            "iSourceType": self.iSourceType,
-            "sSubchannelName": self.sSubchannelName,
-            "sVideoCaptureUrl": self.sVideoCaptureUrl,
-            "iStartTime": self.iStartTime,
-            "lChannelId": self.lChannelId,
-            "lSubChannelId": self.lSubChannelId,
-            "sLocation": self.sLocation
-        }
