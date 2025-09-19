@@ -54,19 +54,14 @@ if __name__ == "__main__":
 
     wup_req = Wup()
     wup_req.requestid = abs(DEFAULT_TICKET_NUMBER)
-    sCookie = ""
-    sGuid = "0a89b728acc80f670c02ab47ac479000"
-    sGuid = ""
     wup_req.servant = "liveui"
     wup_req.func = "getLivingInfo"
     tid = HuyaUserId()
-    tid.lUid = 1486197514
-    tid.sCookie = sCookie
+    tid.lUid = 1001276654
     tid.sDeviceId = "chrome"
-    tid.sGuid = sGuid
     tid.sHuYaUA = "pc_exe&6090007&official"
     LivingInfoReq = HuyaGetLivingInfoReq()
-    LivingInfoReq.lPresenterUid = 1708907089
+    LivingInfoReq.lPresenterUid = 1001276654
     LivingInfoReq.tId = tid
     wup_req.put(
         vtype=HuyaGetLivingInfoReq,
@@ -82,35 +77,13 @@ if __name__ == "__main__":
         vtype=HuyaGetLivingInfoRsp,
         name="tRsp"
     )
-    # # 验证字符串自动解码
-    # print("✅ 字符串自动解码验证:")
-    # print(f"  mMiscInfo 键值对类型: {type(list(LivingInfoRsp.tNotice.mMiscInfo.keys())[0])} / {type(list(LivingInfoRsp.tNotice.mMiscInfo.values())[0])}")
-    # print(f"  vCdnList 元素类型: {type(LivingInfoRsp.tNotice.vCdnList[0])}")
-    # print(f"  直接字符串字段类型: {type(LivingInfoRsp.tNotice.sGameName)}")
-
-    # print(f"\n✅ 示例数据:")
-    # print(f"  游戏名称: {LivingInfoRsp.tNotice.sGameName}")
-    # print(f"  主播昵称: {LivingInfoRsp.tNotice.sNick}")
-    # print(f"  CDN列表: {LivingInfoRsp.tNotice.vCdnList}")
-    # print(f"  配置信息: {dict(list(LivingInfoRsp.tNotice.mMiscInfo.items())[:3])}")
-
-    # # 测试 as_dict 方法
-    # print(f"\n✅ as_dict 方法测试:")
     result_dict = LivingInfoRsp.as_dict()
-    # print(f"  转换成功: {type(result_dict)}")
-    # print(f"  顶层字段数: {len(result_dict)}")
-    # print(f"  tNotice 字段数: {len(result_dict['tNotice'])}")
-    # print(f"  mMiscInfo 类型: {type(result_dict['tNotice']['mMiscInfo'])}")
-    # print(f"  vCdnList 类型: {type(result_dict['tNotice']['vCdnList'])}")
 
-    # # 验证字典中的数据类型
-    # import json
-    # try:
-    #     json_str = json.dumps(result_dict, ensure_ascii=False, indent=2)
-    #     print(f"  JSON 序列化成功: {len(json_str)} 字符")
-    # except Exception as e:
-    #     print(f"  JSON 序列化失败: {e}")
 
     print(result_dict)
 
-    print(LivingInfoRsp)
+    for item in result_dict['tNotice']['vStreamInfo']:
+        flvurl = f"{item['sFlvUrl']}/{item['sStreamName']}.{item['sFlvUrlSuffix']}?{item['sFlvAntiCode']}"
+        hlsurl = f"{item['sHlsUrl']}/{item['sStreamName']}.{item['sHlsUrlSuffix']}?{item['sHlsAntiCode']}"
+        print(f"flvurl: {flvurl}")
+        print(f"hlsurl: {hlsurl}")
