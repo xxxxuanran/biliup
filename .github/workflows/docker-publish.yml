@@ -50,25 +50,49 @@ jobs:
             docker-compose --file docker-compose.test.yml build
             docker-compose --file docker-compose.test.yml run sut
           else
+            # Test standard Dockerfile
             docker build \
               --build-arg repo_url=$REPO_URL \
               --build-arg branch_name=$BRANCH_NAME \
               . --file Dockerfile
+            # Test alpine Dockerfile
+            docker build \
+              --build-arg repo_url=$REPO_URL \
+              --build-arg branch_name=$BRANCH_NAME \
+              . --file Dockerfile.alpine
           fi
 
 
   build:
     needs: test
-    name: Build for ${{ matrix.platform }}
+    name: Build ${{ matrix.variant }} for ${{ matrix.platform }}
     runs-on: ${{ matrix.runner }}
     if: github.event_name == 'push'
     strategy:
       matrix:
         include:
+          # Standard builds
           - platform: linux/amd64
             runner: ubuntu-24.04
+            dockerfile: Dockerfile
+            variant: standard
+            suffix: ""
           - platform: linux/arm64
             runner: ubuntu-24.04-arm
+            dockerfile: Dockerfile
+            variant: standard
+            suffix: ""
+          # Alpine builds
+          - platform: linux/amd64
+            runner: ubuntu-24.04
+            dockerfile: Dockerfile.alpine
+            variant: alpine
+            suffix: "-alpine"
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+            dockerfile: Dockerfile.alpine
+            variant: alpine
+            suffix: "-alpine"
 
     steps:
       - name: Checkout
@@ -92,12 +116,17 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch,suffix=${{ matrix.suffix }}
+            type=ref,event=tag,suffix=${{ matrix.suffix }}
+            type=raw,value=latest${{ matrix.suffix }},enable={{is_default_branch}}
 
       - name: Build and push by digest
         id: build-and-push
         uses: docker/build-push-action@v6
         with:
           context: .
+          file: ${{ matrix.dockerfile }}
           platforms: ${{ matrix.platform }}
           load: false
           push: true
@@ -116,7 +145,7 @@ jobs:
           # Use bash parameter expansion to replace '/' with '-' in platform name
           SAFE_PLATFORM="${{ matrix.platform }}"
           SAFE_PLATFORM="${SAFE_PLATFORM//\//-}"
-          echo "name=digests-${SAFE_PLATFORM}" >> $GITHUB_OUTPUT
+          echo "name=digests-${{ matrix.variant }}-${SAFE_PLATFORM}" >> $GITHUB_OUTPUT
 
       - name: Upload digest
         uses: actions/upload-artifact@v4
@@ -127,17 +156,24 @@ jobs:
           retention-days: 1
 
   merge:
-    name: Merge and tag manifest
+    name: Merge and tag ${{ matrix.variant }} manifest
     needs: build
     runs-on: ubuntu-latest
     if: github.event_name == 'push'
+    strategy:
+      matrix:
+        include:
+          - variant: standard
+            suffix: ""
+          - variant: alpine
+            suffix: "-alpine"
 
     steps:
       - name: Download digests
         uses: actions/download-artifact@v4
         with:
           path: ${{ runner.temp }}/digests
-          pattern: digests-*
+          pattern: digests-${{ matrix.variant }}-*
           merge-multiple: true
 
       - name: Set up Docker Buildx
@@ -155,6 +191,10 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch,suffix=${{ matrix.suffix }}
+            type=ref,event=tag,suffix=${{ matrix.suffix }}
+            type=raw,value=latest${{ matrix.suffix }},enable={{is_default_branch}}
 
       - name: Create manifest list and push
         working-directory: ${{ runner.temp }}/digests

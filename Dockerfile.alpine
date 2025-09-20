@@ -1,0 +1,106 @@
+# Build biliup's web-ui
+FROM node:lts-alpine AS webui-builder
+ARG repo_url=https://github.com/biliup/biliup
+ARG branch_name=master
+
+COPY . /biliup
+
+RUN set -eux; \
+	\
+	if [ ! -f /biliup/biliup.spec ]; then \
+	rm -rf /biliup; \
+	apk add --no-cache git; \
+	git clone --depth 1 --branch "$branch_name" "$repo_url" /biliup; \
+	fi;
+
+WORKDIR /biliup
+
+RUN set -eux; \
+	npm install; \
+	npm run build;
+
+
+# Build biliup's python wheel
+FROM rust:alpine AS wheel-builder
+ARG repo_url=https://github.com/biliup/biliup
+ARG branch_name=master
+
+COPY . /biliup
+
+RUN set -eux; \
+	\
+	apk add --no-cache \
+		python3 \
+		py3-pip \
+		gcc \
+		g++ \
+		musl-dev \
+		python3-dev \
+		git \
+	; \
+	pip3 install maturin --break-system-packages; \
+	if [ ! -f /biliup/biliup.spec ]; then \
+	rm -rf /biliup; \
+	git clone --depth 1 --branch "$branch_name" "$repo_url" /biliup; \
+	fi;
+
+COPY --from=webui-builder /biliup/out /biliup/out
+
+WORKDIR /biliup
+
+RUN set -eux; \
+	maturin build --release;
+
+
+# Deploy Biliup
+FROM python:3.13-alpine AS biliup
+
+ENV TZ="Asia/Shanghai"
+ENV LANG="C.UTF-8"
+ENV LANGUAGE="C.UTF-8"
+ENV LC_ALL="C.UTF-8"
+EXPOSE 19159/tcp
+VOLUME /opt
+
+# 需要遵守 wheel 文件名规范
+COPY --from=wheel-builder /biliup/target/wheels/* /tmp/
+
+RUN set -eux; \
+	\
+	whl=$(ls /tmp/biliup*.whl); \
+	pip3 install --no-cache-dir "$whl"; \
+	# pip3 install --no-cache-dir "$whl[quickjs]"; \
+	pip3 cache purge; \
+	rm -rf /tmp/*;
+
+RUN set -eux; \
+	\
+	apk add --no-cache \
+		wget \
+		curl \
+		ffmpeg \
+		gcc \
+		g++ \
+		musl-dev \
+		python3-dev \
+	; \
+	\
+	# 安装 quickjs 需要 g++
+	pip3 install --no-cache-dir quickjs; \
+	\
+	# Clean up build dependencies but keep runtime dependencies
+	apk del \
+		gcc \
+		g++ \
+		musl-dev \
+		python3-dev \
+	; \
+	rm -rf \
+		/tmp/* \
+		/var/cache/apk/* \
+		/root/.cache \
+	;
+
+WORKDIR /opt
+
+ENTRYPOINT ["biliup"]
