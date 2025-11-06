@@ -556,9 +556,9 @@ pub async fn post_uploads(
     let upload_config = json_data.params;
     let (line, limit, submit_api) = {
         let config = config.read().unwrap();
-        let line = UploadLine::from_str(&config.lines, true).ok();
-        let limit = config.threads;
-        let submit_api = config.submit_api.clone();
+        let line = UploadLine::from_str(&config.upload.lines, true).ok();
+        let limit = config.upload.threads;
+        let submit_api = config.upload.submit_api.clone();
         (line, limit, submit_api)
     };
     info!("通过页面开始上传");

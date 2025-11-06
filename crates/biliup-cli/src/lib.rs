@@ -27,8 +27,8 @@ pub async fn run(addr: (&str, u16), auth: bool) -> AppResult<()> {
 
     let config = Arc::new(RwLock::new(repositories::get_config(&conn_pool).await?));
     let actor_handle = Arc::new(ActorHandle::new(
-        config.read().unwrap().pool1_size,
-        config.read().unwrap().pool2_size,
+        config.read().unwrap().runtime.pool1_size,
+        config.read().unwrap().runtime.pool2_size,
     ));
     let vec = Vec::new();
 

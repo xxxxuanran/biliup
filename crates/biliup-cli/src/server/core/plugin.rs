@@ -1,5 +1,6 @@
 mod twitch;
 pub mod yy;
+pub mod bililive;
 
 use crate::server::common::construct_headers;
 use crate::server::common::util::{Recorder, parse_time};

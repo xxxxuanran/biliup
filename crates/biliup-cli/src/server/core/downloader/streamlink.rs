@@ -208,8 +208,8 @@ impl StreamOutput {
 impl Drop for StreamOutput {
     fn drop(&mut self) {
         let child = match self {
-            StreamOutput::Pipe(ref mut c) => c,
-            StreamOutput::Http { ref mut process, .. } => process,
+            StreamOutput::Pipe( c) => c,
+            StreamOutput::Http { process, .. } => process,
         };
 
         let _ = child.kill(); // 强制终止

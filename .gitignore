@@ -53,4 +53,5 @@ cookies.json
 .cunzhi-memory/
 .serena/
 .cargo/
+!.cargo/config.toml.example
 logs/

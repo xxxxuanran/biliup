@@ -34,7 +34,7 @@ async fn start_client(
         // 获取下一个要检查的房间
         if let Some(room) = rooms_handle.next().await {
             let url = room.get_streamer().url;
-            interval = room.get_config().event_loop_interval;
+            interval = room.get_config().runtime.event_loop_interval;
             let mut ctx = Context::new(room.clone(), pool.clone());
             // 检查直播状态
             match plugin.check_status(&mut ctx).await {
@@ -70,7 +70,7 @@ async fn start_client(
                     let recorder = Recorder::new(
                         streamer
                             .filename_prefix
-                            .or(room.get_config().filename_prefix.clone()),
+                            .or(room.get_config().download.filename_prefix.clone()),
                         stream_info.streamer_info.clone(),
                         &suffix,
                     );

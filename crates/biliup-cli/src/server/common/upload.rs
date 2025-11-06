@@ -66,7 +66,7 @@ where
             recorder,
         )
         .await?;
-        let submit_api = ctx.worker.config.read().unwrap().submit_api.clone();
+        let submit_api = ctx.worker.config.read().unwrap().upload.submit_api.clone();
         submit_to_bilibili(&upload_context.bilibili, &studio, submit_api.as_deref()).await?;
     }
 
@@ -93,13 +93,13 @@ async fn initialize_upload_context(
     let config = worker.get_config();
 
     // 获取上传线路
-    let line = get_upload_line(&worker.client, &config.lines).await?;
+    let line = get_upload_line(&worker.client, &config.upload.lines).await?;
 
     Ok(UploadContext {
         bilibili,
         client: worker.client.clone(),
         line,
-        threads: worker.get_config().threads as usize,
+        threads: worker.get_config().upload.threads as usize,
         upload_config,
     })
 }

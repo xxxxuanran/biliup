@@ -147,6 +147,7 @@ impl SegmentEventProcessor {
                     .config
                     .read()
                     .unwrap()
+                    .download
                     .filtering_threshold
                     * 1000
                     * 1000,
@@ -229,7 +230,7 @@ impl DownloadTask {
         let mut retry_count = 0;
         let max_retries = 5; // 最大重试次数
         let base_delay = Duration::from_secs(0); // 基础延迟时间（2秒）
-        let max_delay = Duration::from_secs(worker.get_config().delay); // 最大延迟时间（60秒）
+        let max_delay = Duration::from_secs(worker.get_config().upload.delay); // 最大延迟时间（60秒）
         let result = loop {
             // 创建守卫确保清理
             // 创建事件处理器
@@ -319,8 +320,8 @@ impl DownloadTask {
         let download_config = DownloadConfig {
             /// 流URL
             url: raw_stream_url.to_string(),
-            segment_time: config.segment_time.or_else(default_segment_time),
-            file_size: Some(config.file_size), // 2GB
+            segment_time: config.download.segment_time.or_else(default_segment_time),
+            file_size: Some(config.download.file_size), // 2GB
             headers: stream_info.stream_headers.clone(),
             recorder: ctx.recorder.clone(),
             // output_dir: PathBuf::from("./downloads")
@@ -435,7 +436,7 @@ impl DActor {
 
                 // 创建下载器实例
                 let downloader = plugin
-                    .create_downloader(ctx.worker.get_config().downloader)
+                    .create_downloader(ctx.worker.get_config().download.downloader)
                     .await;
                 // 创建下载任务
                 let task = Arc::new(DownloadTask::new(plugin.clone(), downloader));

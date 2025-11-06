@@ -97,6 +97,7 @@ pub struct TwitchDownloader {
     pub raw_stream_url: Option<String>,
     proc: Option<Child>,
     danmaku: Option<DanmakuClient>,
+    re: Regex,
 }
 
 impl TwitchDownloader {
@@ -113,6 +114,8 @@ impl TwitchDownloader {
             raw_stream_url: None,
             proc: None,
             danmaku: None,
+            re: Regex::new(r"https?://(?:(?:www|go|m)\.)?twitch\.tv/(?P<id>[0-9_a-zA-Z]+)")
+                .unwrap(),
         }
     }
 

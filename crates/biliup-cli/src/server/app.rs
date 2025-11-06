@@ -47,7 +47,7 @@ impl ApplicationController {
         );
 
         // 生成用于签名会话cookie的加密密钥
-        let key = Key::generate();
+        // let key = Key::generate();
 
         // 配置会话管理层
         let session_layer = SessionManagerLayer::new(session_store)

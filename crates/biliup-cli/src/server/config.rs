@@ -6,16 +6,15 @@ use error_stack::bail;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, path::Path, path::PathBuf};
 
-/// 全局配置结构体
-#[derive(bon::Builder, Debug, Clone, Serialize, Deserialize)]
-pub struct Config {
-    // ===== 全局录播与上传设置 =====
+/// 下载配置模块
+/// 包含录播下载相关的所有配置项
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DownloadConfig {
     /// 下载器类型：streamlink | ffmpeg | stream-gears | 自定义
     #[serde(default)]
     pub downloader: Option<DownloaderType>,
 
     /// 文件大小限制（字节）
-    #[builder(default = default_file_size())]
     #[serde(default = "default_file_size")]
     pub file_size: u64,
 
@@ -24,7 +23,6 @@ pub struct Config {
     pub segment_time: Option<String>,
 
     /// 过滤阈值（MB）
-    #[builder(default = default_filtering_threshold())]
     #[serde(default = "default_filtering_threshold")]
     pub filtering_threshold: u64,
 
@@ -35,7 +33,25 @@ pub struct Config {
     /// 分段处理器是否并行执行
     #[serde(default)]
     pub segment_processor_parallel: Option<bool>,
+}
 
+impl Default for DownloadConfig {
+    fn default() -> Self {
+        Self {
+            downloader: None,
+            file_size: default_file_size(),
+            segment_time: default_segment_time(),
+            filtering_threshold: default_filtering_threshold(),
+            filename_prefix: None,
+            segment_processor_parallel: None,
+        }
+    }
+}
+
+/// 上传配置模块
+/// 包含视频上传相关的所有配置项
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UploadConfig {
     /// 上传器类型：Noop | bili_web | biliup-rs | 其他
     #[serde(default)]
     pub uploader: Option<String>,
@@ -45,46 +61,72 @@ pub struct Config {
     pub submit_api: Option<String>,
 
     /// 上传线路：AUTO | alia | bda2 | bldsa | qn | tx | txa
-    #[builder(default = default_lines())]
     #[serde(default = "default_lines")]
     pub lines: String,
 
     /// 上传线程数
-    #[builder(default = default_threads())]
     #[serde(default = "default_threads")]
     pub threads: u32,
 
     /// 延迟时间（秒）
-    #[builder(default = default_delay())]
     #[serde(default = "default_delay")]
     pub delay: u64,
 
+    /// 是否使用直播封面
+    #[serde(default)]
+    pub use_live_cover: Option<bool>,
+}
+
+impl Default for UploadConfig {
+    fn default() -> Self {
+        Self {
+            uploader: None,
+            submit_api: None,
+            lines: default_lines(),
+            threads: default_threads(),
+            delay: default_delay(),
+            use_live_cover: None,
+        }
+    }
+}
+
+/// 运行时配置模块
+/// 包含程序运行时的系统配置项
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RuntimeConfig {
     /// 事件循环间隔（秒）
-    #[builder(default = default_event_loop_interval())]
     #[serde(default = "default_event_loop_interval")]
     pub event_loop_interval: u64,
 
     /// 检查器休眠时间（秒）
-    #[builder(default = default_checker_sleep())]
     #[serde(default = "default_checker_sleep")]
     pub checker_sleep: u64,
 
     /// 连接池1大小
-    #[builder(default = default_pool1_size())]
     #[serde(default = "default_pool1_size")]
     pub pool1_size: u32,
 
     /// 连接池2大小
-    #[builder(default = default_pool2_size())]
     #[serde(default = "default_pool2_size")]
     pub pool2_size: u32,
+}
 
-    // ===== 各平台录播设置 =====
-    /// 是否使用直播封面
-    #[serde(default)]
-    pub use_live_cover: Option<bool>,
+impl Default for RuntimeConfig {
+    fn default() -> Self {
+        Self {
+            event_loop_interval: default_event_loop_interval(),
+            checker_sleep: default_checker_sleep(),
+            pool1_size: default_pool1_size(),
+            pool2_size: default_pool2_size(),
+        }
+    }
+}
 
-    // 斗鱼平台设置
+/// 平台特定配置模块
+/// 包含各个直播平台的专属配置项
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct PlatformConfigs {
+    // ===== 斗鱼平台设置 =====
     /// 斗鱼CDN节点
     #[serde(default)]
     pub douyu_cdn: Option<String>,
@@ -95,7 +137,7 @@ pub struct Config {
     #[serde(default)]
     pub douyu_rate: Option<u32>,
 
-    // 虎牙平台设置
+    // ===== 虎牙平台设置 =====
     /// 虎牙CDN节点
     #[serde(default)]
     pub huya_cdn: Option<String>,
@@ -112,7 +154,7 @@ pub struct Config {
     #[serde(default)]
     pub huya_protocol: Option<String>,
 
-    // 抖音平台设置
+    // ===== 抖音平台设置 =====
     /// 抖音弹幕录制
     #[serde(default)]
     pub douyin_danmaku: Option<bool>,
@@ -126,42 +168,27 @@ pub struct Config {
     #[serde(default)]
     pub douyin_true_origin: Option<bool>,
 
-    // 哔哩哔哩平台设置
+    // ===== 哔哩哔哩平台设置 =====
     /// B站弹幕录制
     #[serde(default)]
-    pub bilibili_danmaku: Option<bool>,
-    /// B站弹幕详细信息
-    #[serde(default)]
-    pub bilibili_danmaku_detail: Option<bool>,
-    /// B站弹幕原始数据
-    #[serde(default)]
-    pub bilibili_danmaku_raw: Option<bool>,
+    pub bililive_danmaku: Option<bool>,
     /// B站协议类型：stream | hls_ts | hls_fmp4
     #[serde(default)]
-    pub bili_protocol: Option<String>,
+    pub bililive_protocol: Option<String>,
     /// B站CDN节点列表
     #[serde(default)]
-    pub bili_cdn: Option<Vec<String>>,
+    pub bililive_cdn: Option<Vec<String>>,
     /// B站强制原画
     #[serde(default)]
-    pub bili_force_source: Option<bool>,
+    pub bililive_force_source: Option<bool>,
     /// B站直播API
     #[serde(default)]
-    pub bili_liveapi: Option<String>,
-    /// B站回退API
-    #[serde(default)]
-    pub bili_fallback_api: Option<String>,
-    /// B站CDN回退
-    #[serde(default)]
-    pub bili_cdn_fallback: Option<bool>,
-    /// B站cn01节点替换
-    #[serde(default)]
-    pub bili_replace_cn01: Option<Vec<String>>,
+    pub bililive_liveapi: Option<String>,
     /// B站画质编号
     #[serde(default)]
-    pub bili_qn: Option<u32>,
+    pub bililive_qn: Option<u32>,
 
-    // YouTube平台设置
+    // ===== YouTube平台设置 =====
     /// YouTube首选视频编码
     #[serde(default)]
     pub youtube_prefer_vcodec: Option<String>,
@@ -187,7 +214,7 @@ pub struct Config {
     #[serde(default)]
     pub youtube_enable_download_playback: Option<bool>,
 
-    // Twitch平台设置
+    // ===== Twitch平台设置 =====
     /// Twitch弹幕录制
     #[serde(default)]
     pub twitch_danmaku: Option<bool>,
@@ -195,13 +222,37 @@ pub struct Config {
     #[serde(default)]
     pub twitch_disable_ads: Option<bool>,
 
-    // TwitCasting平台设置
+    // ===== TwitCasting平台设置 =====
     /// TwitCasting弹幕录制
     #[serde(default)]
     pub twitcasting_danmaku: Option<bool>,
     /// TwitCasting密码
     #[serde(default)]
     pub twitcasting_password: Option<String>,
+}
+
+/// 全局配置结构体
+#[derive(bon::Builder, Debug, Clone, Serialize, Deserialize)]
+pub struct Config {
+    /// 下载配置模块
+    #[serde(flatten)]
+    #[builder(default)]
+    pub download: DownloadConfig,
+
+    /// 上传配置模块
+    #[serde(flatten)]
+    #[builder(default)]
+    pub upload: UploadConfig,
+
+    /// 运行时配置模块
+    #[serde(flatten)]
+    #[builder(default)]
+    pub runtime: RuntimeConfig,
+
+    /// 平台特定配置模块
+    #[serde(flatten)]
+    #[builder(default)]
+    pub platform: PlatformConfigs,
 
     /// 录制主播配置映射
     #[serde(default)]
@@ -412,5 +463,66 @@ impl Config {
             "load_or_create: {:?}",
             path.as_ref().display()
         )))
+    }
+
+    /// 根据前缀提取配置项
+    ///
+    /// # 参数
+    /// * `prefix` - 配置前缀（如 "bililive"、"douyu"、"huya" 等）
+    ///
+    /// # 返回
+    /// 返回一个 HashMap，key 是去掉前缀后的字段名，value 是配置值
+    ///
+    /// # 示例
+    /// ```
+    /// let bililive_config = config.get_prefix_config("bililive");
+    /// // 返回: {"danmaku": true, "protocol": "hls_fmp4", "cdn": [...], ...}
+    /// ```
+    pub fn get_paltform_config(&self, prefix: &str) -> HashMap<String, serde_json::Value> {
+        let mut result = HashMap::new();
+
+        // 将 Config 序列化为 JSON Value
+        let config_value = serde_json::to_value(self).unwrap_or(serde_json::Value::Null);
+
+        if let serde_json::Value::Object(map) = config_value {
+            let prefix_with_underscore = format!("{}_", prefix.to_lowercase());
+
+            // 过滤出所有以指定前缀开头的字段
+            for (key, value) in map {
+                if key.starts_with(&prefix_with_underscore) {
+                    // 去掉前缀，只保留字段名
+                    let field_name = key.strip_prefix(&prefix_with_underscore)
+                        .unwrap_or(&key)
+                        .to_string();
+                    result.insert(field_name, value);
+                }
+            }
+        }
+
+        result
+    }
+
+    /// 根据前缀提取配置并反序列化为指定类型
+    ///
+    /// # 参数
+    /// * `prefix` - 配置前缀（如 "bililive"、"douyu"、"huya" 等）
+    ///
+    /// # 返回
+    /// 返回反序列化后的配置结构体
+    ///
+    /// # 示例
+    /// ```
+    /// let plugin_config: PluginConfig = config.get_prefix_config_as("bililive")?;
+    /// ```
+    pub fn get_paltform_config_by_prefix<T: serde::de::DeserializeOwned>(
+        &self,
+        prefix: &str,
+    ) -> AppResult<T> {
+        let config_map = self.get_prefix_config(prefix);
+        let value = serde_json::to_value(config_map)
+            .map_err(|e| AppError::Custom(format!("序列化配置失败: {}", e)))?;
+
+        serde_json::from_value(value)
+            .map_err(|e| AppError::Custom(format!("反序列化配置失败: {}", e)).into())
     }
 }
