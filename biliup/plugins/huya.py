@@ -317,7 +317,8 @@ class Huya(DownloadBase):
         logger.debug(f"{self.plugin_msg}: wup token_info {token_info}")
         return token_info[f'{proto}AntiCode']
 
-    def build_query(self, stream_name, anti_code, uid: int) -> str:
+    @staticmethod
+    def build_query(stream_name, anti_code, uid: int) -> str:
         '''
         构建anti_code
         :param stream_name: 流名称
@@ -332,7 +333,7 @@ class Huya(DownloadBase):
         seq_id = uid + int(time.time() * 1000)
         ctype = url_query['ctype'][0]
         fm = unquote(url_query['fm'][0])
-        ct = int((int(ws_time, 16) + random.random()) * 1000)
+        # ct = int((int(ws_time, 16) + random.random()) * 1000)
         ws_secret_prefix = base64.b64decode(fm.encode()).decode().split('_')[0]
         ws_secret_hash = hashlib.md5(f"{seq_id}|{ctype}|{platform_id}".encode()).hexdigest()
         secret_str = f'{ws_secret_prefix}_{convert_uid}_{stream_name}_{ws_secret_hash}_{ws_time}'
@@ -357,9 +358,9 @@ class Huya(DownloadBase):
             "ver": "1",
             "fs": url_query['fs'][0],
             "t": platform_id,
-            "u": convert_uid,
-            "uuid": str(int((ct % 1e10 + random.random()) * 1e3 % 0xffffffff)),
-            "sdk_sid": str(int(time.time() * 1000)),
+            # "u": convert_uid,
+            # "uuid": str(int((ct % 1e10 + random.random()) * 1e3 % 0xffffffff)),
+            # "sdk_sid": str(int(time.time() * 1000)),
             # "codec": self.huya_codec,
         }
         return '&'.join([f"{k}={v}" for k, v in anti_code.items()])

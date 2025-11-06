@@ -1,0 +1,3 @@
+[env]
+PYO3_PYTHON = "C:\\Users\\Starling\\.conda\\envs\\py310\\python.exe"
+VIRTUAL_ENV = "C:\\Users\\Starling\\.conda\\envs\\py310"
