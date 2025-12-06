@@ -24,7 +24,7 @@ client = httpx.Client()
 class PLATFORM(Enum):
     HUYA_PC_EXE = 0
     HUYA_ADR = 2
-    ios = 3
+    HUYA_IOS = 3
     TV_HUYA_NFTV = 10
     HUYA_WEBH5 = 100
     HUYA_LIVE = 100
@@ -45,7 +45,7 @@ class PLATFORM(Enum):
 rotl64 = lambda t: ((t & 0xFFFFFFFF) << 8 | (t & 0xFFFFFFFF) >> 24) & 0xFFFFFFFF | (t & ~0xFFFFFFFF)
 
 
-def build_query(stream_name, anti_code, uid: int = 0) -> str:
+def build_query(stream_name, anti_code, uid: int = 0, random_platform: bool = False) -> str:
     '''
     构建anti_code
     :param stream_name: 流名称
@@ -56,6 +56,7 @@ def build_query(stream_name, anti_code, uid: int = 0) -> str:
     url_query = parse_qs(anti_code)
     if not url_query.get("fm"):
         return anti_code
+
     ctype = url_query.get('ctype', [])
     platform_id = url_query.get('t', [])
     if len(ctype) == 0:
@@ -66,15 +67,26 @@ def build_query(stream_name, anti_code, uid: int = 0) -> str:
     else:
         ctype = ctype[0]
         platform_id = platform_id[0]
-    is_wap = platform_id in {103, "103"}
+    ctype, platform_id = PLATFORM.get_random_as_tuple()
+
+    is_wap = int(platform_id) in {103}
+    clac_start_time = time.time()
+
+    if uid == 0:
+        if random.random() > 0.9:
+            uid = int(f"1234{random.randint(0, 9999):04d}")
+        else:
+            uid = int(f"140000{random.randint(0, 9999999):07d}")
+    seq_id = uid + int(clac_start_time * 1000)
+    secret_hash = hashlib.md5(f"{seq_id}|{ctype}|{platform_id}".encode()).hexdigest()
+    convert_uid = rotl64(uid)
+    clac_uid = uid if is_wap else convert_uid
+
     fm = unquote(url_query['fm'][0])
     secret_prefix = base64.b64decode(fm.encode()).decode().split('_')[0]
-    seq_id = uid + int(time.time() * 1000)
-    convert_uid = rotl64(uid) if uid != 0 else rotl64(int(f"1234{random.randint(0, 9999):04d}"))
-    clac_uid = uid if is_wap else convert_uid
-    secret_hash = hashlib.md5(f"{seq_id}|{ctype}|{platform_id}".encode()).hexdigest()
+
     # ws_time = url_query['wsTime'][0]
-    ws_time = hex(int(time.time()) + 60 * 60 * 24)[2:] # 修改过期时间为 1 day
+    ws_time = hex(60 * 60 * 24 + int(clac_start_time))[2:] # 修改过期时间为 1 day
     secret_str = f'{secret_prefix}_{clac_uid}_{stream_name}_{secret_hash}_{ws_time}'
     ws_secret = hashlib.md5(secret_str.encode()).hexdigest()
 
@@ -240,14 +252,14 @@ if __name__ == "__main__":
         og2flvurl = f"{item['sFlvUrl']}/{originStreamName}.{item['sFlvUrlSuffix']}?{build_query(originStreamName, item['sFlvAntiCode'], presenterUid)}"
         hlsurl = f"{item['sHlsUrl']}/{item['sStreamName']}.{item['sHlsUrlSuffix']}?{item['sHlsAntiCode']}"
         # oghlsurl = f"{item['sHlsUrl']}/{originStreamName}.{item['sHlsUrlSuffix']}?{token_info_dict['hlsAntiCode']}"
-        # oghlsurl = f"{item['sHlsUrl']}/{originStreamName}.{item['sHlsUrlSuffix']}?{build_query(originStreamName, token_info_dict['hlsAntiCode'], presenterUid)}"
-        og2hlsurl = f"{item['sHlsUrl']}/{originStreamName}.{item['sHlsUrlSuffix']}?{build_query(originStreamName, item['sHlsAntiCode'], presenterUid)}"
+        oghlsurl = f"{item['sHlsUrl']}/{originStreamName}.{item['sHlsUrlSuffix']}?{build_query(originStreamName, item['sHlsAntiCode'], presenterUid)}"
+        og2hlsurl = f"{item['sHlsUrl']}/{originStreamName}.{item['sHlsUrlSuffix']}?{build_query(originStreamName, item['sHlsAntiCode'], presenterUid, True)}"
         print(f"------------------------WUP------------------------")
         print(f"{item['sCdnType']}-FLV: {flvurl}")
         # print(f"{item['sCdnType']}-OGFLV: {ogflvurl}")
         print(f"{item['sCdnType']}-OG2FLV: {og2flvurl}")
         print(f"{item['sCdnType']}-HLS: {hlsurl}")
-        # print(f"{item['sCdnType']}-OGHLS: {oghlsurl}")
+        print(f"{item['sCdnType']}-OGHLS: {oghlsurl}")
         print(f"{item['sCdnType']}-OG2HLS: {og2hlsurl}")
 
-        print(f'ffmpeg -y --loglevel warning -headers "User-Agent: {huya_headers["user-agent"]}`r`nReferer: {huya_headers["referer"]}`r`nOrigin: {huya_headers["origin"]}" -i "{og2hlsurl.replace("http://", "https://")}" -c copy E:\Videos\hy.flv')
+        print(f'ffmpeg -y -headers "User-Agent: {huya_headers["user-agent"]}`r`nReferer: {huya_headers["referer"]}`r`nOrigin: {huya_headers["origin"]}" -i "{og2flvurl.replace("http://", "https://")}" -c copy E:\Videos\hy.flv')
