@@ -120,6 +120,9 @@ def build_query(stream_name, anti_code, uid: int = 0, random_platform: bool = Fa
         # "a_block": 0, # adBlock
         # "sf": 1, # isWupFail
         # "startPts": 0, # getIframePts
+        "ali_dispatch_cold_stream": "on",
+        "dispatch_from": "ztc9.9.9.11",
+        "302_type": "cold_aggr",
     })
 
     return '&'.join([f"{k}={v}" for k, v in anti_code.items()])
