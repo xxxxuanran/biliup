@@ -59,7 +59,7 @@ def build_query(stream_name, anti_code, uid: int = 0, random_platform: bool = Fa
 
     ctype = url_query.get('ctype', [])
     platform_id = url_query.get('t', [])
-    if len(ctype) == 0:
+    if len(ctype) == 0 or random_platform:
         ctype, platform_id = PLATFORM.get_random_as_tuple()
     elif len(platform_id) == 0:
         ctype = ctype[0]
@@ -67,7 +67,7 @@ def build_query(stream_name, anti_code, uid: int = 0, random_platform: bool = Fa
     else:
         ctype = ctype[0]
         platform_id = platform_id[0]
-    ctype, platform_id = PLATFORM.get_random_as_tuple()
+    # ctype, platform_id = PLATFORM.get_random_as_tuple()
 
     is_wap = int(platform_id) in {103}
     clac_start_time = time.time()
@@ -85,8 +85,9 @@ def build_query(stream_name, anti_code, uid: int = 0, random_platform: bool = Fa
     fm = unquote(url_query['fm'][0])
     secret_prefix = base64.b64decode(fm.encode()).decode().split('_')[0]
 
-    # ws_time = url_query['wsTime'][0]
-    ws_time = hex(60 * 60 * 24 + int(clac_start_time))[2:] # 修改过期时间为 1 day
+    ws_time = url_query['wsTime'][0]
+    if int(ws_time, 16) < (20 * 60 + int(clac_start_time)): # 修复 5min 可用
+        ws_time = hex(24 * 60 * 60 + int(clac_start_time))[2:] # 修改过期时间为 1 day
     secret_str = f'{secret_prefix}_{clac_uid}_{stream_name}_{secret_hash}_{ws_time}'
     ws_secret = hashlib.md5(secret_str.encode()).hexdigest()
 
@@ -133,12 +134,13 @@ if __name__ == "__main__":
     wup_url: str = "https://wup.huya.com"
     wmp_url: str = "https://mp.huya.com"
     huya_headers: dict = {
-        "user-agent": f"android, 20000313_APP(huya_nftv&2.5.1.3243&official&28)_SDK(trans&1.24.99-rel-tv)",
+        # "user-agent": f"android, 20000313_APP(huya_nftv&2.5.1.3243&official&28)_SDK(trans&1.24.99-rel-tv)",
+        "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36",
         "referer": "https://www.huya.com/",
         "origin": "https://www.huya.com",
     }
-    # presenterUid = 333393123
-    room_id = 243547
+    # presenterUid = 13671279
+    room_id = 594877
 
     # convertUid = rot_uid(1486197514)
     # print(convertUid, convertUid == 2509441624)
@@ -163,31 +165,31 @@ if __name__ == "__main__":
     #     print(f"{item['sCdnType']}-HLS: {hlsurl}")
     #     print(f"{item['sCdnType']}-OGHLS: {oghlsurl}")
 
-    api_rsp = client.get(
-        url=f"{wmp_url}/cache.php",
-        params={
-            'm': 'Live',
-            'do': 'profileRoom',
-            'roomid': room_id,
-            'showSecret': 1,
-        }
-    )
-    api_dict = api_rsp.json()['data']
-    presenterUid = api_dict['profileInfo']['uid']
-    print(presenterUid)
-    for item in api_dict['stream']['baseSteamInfoList']:
-        if item['iWebPriorityRate'] < 0:
-            continue
-        originStreamName = item['sStreamName'].replace('-imgplus', '')
-        flvurl = f"{item['sFlvUrl']}/{item['sStreamName']}.{item['sFlvUrlSuffix']}?{item['sFlvAntiCode']}"
-        ogflvurl = f"{item['sFlvUrl']}/{originStreamName}.{item['sFlvUrlSuffix']}?{build_query(originStreamName, item['sFlvAntiCode'], presenterUid)}"
-        hlsurl = f"{item['sHlsUrl']}/{item['sStreamName']}.{item['sHlsUrlSuffix']}?{item['sHlsAntiCode']}"
-        oghlsurl = f"{item['sHlsUrl']}/{originStreamName}.{item['sHlsUrlSuffix']}?{build_query(originStreamName, item['sHlsAntiCode'], presenterUid)}"
-        print(f"------------------------API------------------------")
-        print(f"{item['sCdnType']}-FLV: {flvurl}")
-        print(f"{item['sCdnType']}-OGFLV: {ogflvurl}")
-        print(f"{item['sCdnType']}-HLS: {hlsurl}")
-        print(f"{item['sCdnType']}-OGHLS: {oghlsurl}")
+    # api_rsp = client.get(
+    #     url=f"{wmp_url}/cache.php",
+    #     params={
+    #         'm': 'Live',
+    #         'do': 'profileRoom',
+    #         'roomid': room_id,
+    #         'showSecret': 1,
+    #     }
+    # )
+    # api_dict = api_rsp.json()['data']
+    # presenterUid = api_dict['profileInfo']['uid']
+    # print(presenterUid)
+    # for item in api_dict['stream']['baseSteamInfoList']:
+    #     if item['iWebPriorityRate'] < 0:
+    #         continue
+    #     originStreamName = item['sStreamName'].replace('-imgplus', '')
+    #     flvurl = f"{item['sFlvUrl']}/{item['sStreamName']}.{item['sFlvUrlSuffix']}?{item['sFlvAntiCode']}"
+    #     ogflvurl = f"{item['sFlvUrl']}/{originStreamName}.{item['sFlvUrlSuffix']}?{build_query(originStreamName, item['sFlvAntiCode'], presenterUid)}"
+    #     hlsurl = f"{item['sHlsUrl']}/{item['sStreamName']}.{item['sHlsUrlSuffix']}?{item['sHlsAntiCode']}"
+    #     oghlsurl = f"{item['sHlsUrl']}/{originStreamName}.{item['sHlsUrlSuffix']}?{build_query(originStreamName, item['sHlsAntiCode'], presenterUid)}"
+    #     print(f"------------------------API------------------------")
+    #     print(f"{item['sCdnType']}-FLV: {flvurl}")
+    #     print(f"{item['sCdnType']}-OGFLV: {ogflvurl}")
+    #     print(f"{item['sCdnType']}-HLS: {hlsurl}")
+    #     print(f"{item['sCdnType']}-OGHLS: {oghlsurl}")
 
 
     wup_req = Wup()
@@ -197,11 +199,16 @@ if __name__ == "__main__":
     tid = HuyaUserId()
     # tid.lUid = presenterUid
     # tid.sDeviceId = "chrome"
-    tid.sDeviceId = "android_tv"
+    # tid.sDeviceId = "android_tv"
     # tid.sHuYaUA = "huya_nftv&7020004&official"
-    tid.sHuYaUA = "huya_nftv&2.5.1.3141&official&30"
+    # tid.sHuYaUA = "huya_nftv&2.5.1.3243&official&28"
+    from datetime import datetime
+    now = datetime.now()
+    tid.sHuYaUA = f"webh5&{now.strftime("%y%m%d%H%M")}&websocket"
+    print(tid.sHuYaUA)
     LivingInfoReq = HuyaGetLivingInfoReq()
-    LivingInfoReq.lPresenterUid = presenterUid
+    # LivingInfoReq.lPresenterUid = presenterUid
+    LivingInfoReq.iRoomId = room_id
     LivingInfoReq.tId = tid
     wup_req.put(
         vtype=HuyaGetLivingInfoReq,
@@ -209,6 +216,7 @@ if __name__ == "__main__":
         value=LivingInfoReq
     )
     data = wup_req.encode_v3()
+    # rsp = client.post(f"https://snmhuya.yst.aisee.tv/liveui/getLivingInfo", data=data)
     rsp = client.post(wup_url, data=data)
     rsp_bytes = rsp.content
     # print(rsp_bytes)
@@ -219,7 +227,7 @@ if __name__ == "__main__":
         name="tRsp"
     )
     result_dict = LivingInfoRsp.as_dict()
-    # print(result_dict)
+    print(result_dict)
 
 
     for item in result_dict['tNotice']['vStreamInfo']:
@@ -228,7 +236,33 @@ if __name__ == "__main__":
     #     wup_req.servant = "liveui"
     #     wup_req.func = "getCdnTokenInfo"
     #     token_info_req = HuyaGetCdnTokenReq()
+        wup_req = Wup()
+        wup_req.requestid = abs(DEFAULT_TICKET_NUMBER)
+        wup_req.servant = "liveui"
+        wup_req.func = "getCdnTokenInfoEx"
+        getCdnTokenInfoExReq = HuyaGetCdnTokenExReq()
         originStreamName = item['sStreamName'].replace('-imgplus', '')
+            # getCdnTokenInfoExReq.sFlvUrl = item['sFlvUrl']
+        getCdnTokenInfoExReq.sStreamName = originStreamName
+        getCdnTokenInfoExReq.iLoopTime = 60 * 60 * 24 - 300
+
+        getCdnTokenInfoExReq.tId = tid
+        wup_req.put(
+            vtype=HuyaGetCdnTokenExReq,
+            name="tReq",
+            value=getCdnTokenInfoExReq
+        )
+        data = wup_req.encode_v3()
+        rsp = client.post(wup_url, data=data)
+        rsp_bytes = rsp.content
+        # print(rsp_bytes)
+        wup_rsp = Wup()
+        wup_rsp.decode_v3(rsp_bytes)
+        getCdnTokenInfoExRsp = wup_rsp.get(
+            vtype=HuyaGetCdnTokenExRsp,
+            name="tRsp"
+        )
+        cdn_token_info_ex = getCdnTokenInfoExRsp.as_dict()
         # print(item['sCdnType'], originStreamName)
     #     token_info_req.cdnType = item['sCdnType']
     #     token_info_req.streamName = originStreamName
@@ -250,19 +284,18 @@ if __name__ == "__main__":
     #     # print()
     #     token_info_dict = token_info_rsp.as_dict()
 
-        flvurl = f"{item['sFlvUrl']}/{item['sStreamName']}.{item['sFlvUrlSuffix']}?{item['sFlvAntiCode']}"
-        # ogflvurl = f"{item['sFlvUrl']}/{originStreamName}.{item['sFlvUrlSuffix']}?{token_info_dict['flvAntiCode']}"
-        og2flvurl = f"{item['sFlvUrl']}/{originStreamName}.{item['sFlvUrlSuffix']}?{build_query(originStreamName, item['sFlvAntiCode'], presenterUid)}"
-        hlsurl = f"{item['sHlsUrl']}/{item['sStreamName']}.{item['sHlsUrlSuffix']}?{item['sHlsAntiCode']}"
-        # oghlsurl = f"{item['sHlsUrl']}/{originStreamName}.{item['sHlsUrlSuffix']}?{token_info_dict['hlsAntiCode']}"
-        oghlsurl = f"{item['sHlsUrl']}/{originStreamName}.{item['sHlsUrlSuffix']}?{build_query(originStreamName, item['sHlsAntiCode'], presenterUid)}"
-        og2hlsurl = f"{item['sHlsUrl']}/{originStreamName}.{item['sHlsUrlSuffix']}?{build_query(originStreamName, item['sHlsAntiCode'], presenterUid, True)}"
+        flvurl = f"{item['sFlvUrl']}/{item['sStreamName']}.{item['sFlvUrlSuffix']}?{build_query(item['sStreamName'], item['sFlvAntiCode'], item['lPresenterUid'], False)}"
+        ogflvurl = f"{item['sFlvUrl']}/{originStreamName}.{item['sFlvUrlSuffix']}?{build_query(originStreamName, cdn_token_info_ex['sFlvToken'], item['lPresenterUid'], False)}"
+        og2flvurl = f"{item['sFlvUrl']}/{originStreamName}.{item['sFlvUrlSuffix']}?{build_query(originStreamName, item['sFlvAntiCode'], item['lPresenterUid'], True)}"
+        hlsurl = f"{item['sHlsUrl']}/{item['sStreamName']}.{item['sHlsUrlSuffix']}?{build_query(item['sStreamName'], item['sHlsAntiCode'], item['lPresenterUid'], False)}"
+        oghlsurl = f"{item['sHlsUrl']}/{originStreamName}.{item['sHlsUrlSuffix']}?{build_query(originStreamName, cdn_token_info_ex['sFlvToken'], item['lPresenterUid'], False)}"
+        og2hlsurl = f"{item['sHlsUrl']}/{originStreamName}.{item['sHlsUrlSuffix']}?{build_query(originStreamName, item['sHlsAntiCode'], item['lPresenterUid'], True)}"
         print(f"------------------------WUP------------------------")
         print(f"{item['sCdnType']}-FLV: {flvurl}")
-        # print(f"{item['sCdnType']}-OGFLV: {ogflvurl}")
+        print(f"{item['sCdnType']}-OGFLV: {ogflvurl}")
         print(f"{item['sCdnType']}-OG2FLV: {og2flvurl}")
         print(f"{item['sCdnType']}-HLS: {hlsurl}")
         print(f"{item['sCdnType']}-OGHLS: {oghlsurl}")
         print(f"{item['sCdnType']}-OG2HLS: {og2hlsurl}")
 
-        print(f'ffmpeg -y -headers "User-Agent: {huya_headers["user-agent"]}`r`nReferer: {huya_headers["referer"]}`r`nOrigin: {huya_headers["origin"]}" -i "{og2flvurl.replace("http://", "https://")}" -c copy E:\Videos\hy.flv')
+        print(f'ffmpeg -y -headers "User-Agent: {huya_headers["user-agent"]}`r`nReferer: {huya_headers["referer"]}`r`nOrigin: {huya_headers["origin"]}" -i "{ogflvurl.replace("http://", "https://")}" -c copy E:\Videos\hy.flv')

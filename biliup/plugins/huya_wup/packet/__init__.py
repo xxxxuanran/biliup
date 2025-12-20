@@ -7,11 +7,17 @@ from .getLivingInfo import (
     HuyaGetLivingInfoReq,
     HuyaGetLivingInfoRsp
 )
+from .getCdnTokenEx import (
+    HuyaGetCdnTokenExReq,
+    HuyaGetCdnTokenExRsp
+)
 
 __all__ = [
     'HuyaGetCdnTokenReq',
     'HuyaGetCdnTokenRsp',
     'HuyaGetLivingInfoReq',
-    'HuyaGetLivingInfoRsp'
+    'HuyaGetLivingInfoRsp',
+    'HuyaGetCdnTokenExReq',
+    'HuyaGetCdnTokenExRsp'
 ]
 

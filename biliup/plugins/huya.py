@@ -31,6 +31,7 @@ HUYA_WEB_BASE_URL = "https://www.huya.com"
 HUYA_MOBILE_BASE_URL = "https://m.huya.com"
 HUYA_MP_BASE_URL = "https://mp.huya.com"
 HUYA_WUP_BASE_URL = "https://wup.huya.com"
+HUYA_WUP_YST_URL = "https://snmhuya.yst.aisee.tv"
 HUYA_WEB_ROOM_DATA_REGEX = r"var TT_ROOM_DATA = (.*?);"
 
 @Plugin.download(regexp=r'https?://(?:(?:www|m)\.)?huya\.com')
@@ -403,7 +404,10 @@ class Huya(DownloadBase):
 
     def update_headers(self, headers: dict):
         if self.huya_use_wup:
-            user_agent = UAGenerator.build_user_agent(UAType.HYSDK, Platform.WINDOWS)
+            # user_agent = UAGenerator.build_user_agent(UAType.HYSDK, Platform.WINDOWS)
+            user_agent = UAGenerator.build_user_agent(
+                UAType.MEDIA_PLAYER, Platform.HUYA_NFTV
+            )
             # user_agent = f"{Huya.get_hysdk_ua()}_APP({Huya.get_hyapp_ua()})_SDK({Huya.get_hy_trans_mod_ua()})"
             headers['user-agent'] = user_agent
             headers['origin'] = HUYA_WEB_BASE_URL
