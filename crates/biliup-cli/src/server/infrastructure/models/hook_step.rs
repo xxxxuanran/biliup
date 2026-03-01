@@ -33,7 +33,12 @@ impl HookStep {
         match self {
             HookStep::Run { run } => {
                 // 执行自定义命令
-                self.execute_command(run, video_paths).await?;
+                let paths_str = video_paths
+                    .iter()
+                    .map(|p| p.to_string_lossy())
+                    .reduce(|acc, e| Cow::from(acc.to_string() + "\n" + &*e))
+                    .ok_or(AppError::Unknown)?;
+                self.execute_command(run, paths_str.as_bytes()).await?;
             }
             HookStep::Move { mv } => {
                 // 移动文件到指定目录
@@ -61,65 +66,7 @@ impl HookStep {
     pub async fn execute_with(&self, src: &[u8]) -> AppResult<()> {
         match self {
             HookStep::Run { run } => {
-                // 1. 跨平台 Shell 处理 (对应 shell=True)
-                // Windows 使用 "cmd /C"，Unix/Mac 使用 "sh -c"
-                let (shell, flag) = if cfg!(target_os = "windows") {
-                    ("cmd", "/C")
-                } else {
-                    ("sh", "-c")
-                };
-                // 执行自定义命令
-                // 解析命令和参数
-                // 启动子进程，配置标准输入管道
-                let mut process = Command::new(shell)
-                    .arg(flag)
-                    .arg(run)
-                    .stdin(std::process::Stdio::piped())
-                    .stdout(std::process::Stdio::piped())
-                    .stderr(std::process::Stdio::piped())
-                    .spawn()
-                    .change_context(AppError::Unknown)?;
-
-                // 将自定义输入写入标准输入
-                if let Some(mut stdin) = process.stdin.take() {
-                    stdin
-                        .write_all(src)
-                        .await
-                        .change_context(AppError::Unknown)?;
-                }
-
-                let stdout = process.stdout.take().unwrap();
-                let stderr = process.stderr.take().unwrap();
-
-                let mut stdout_lines = BufReader::new(stdout).lines();
-                let mut stderr_lines = BufReader::new(stderr).lines();
-
-                loop {
-                    tokio::select! {
-                        line = stdout_lines.next_line() => {
-                            match line.change_context(AppError::Unknown)? {
-                                Some(l) => tracing::info!(target="user_cmd_stdout", "{}", l),
-                                None => break, // stdout EOF
-                            }
-                        }
-                        line = stderr_lines.next_line() => {
-                            match line.change_context(AppError::Unknown)? {
-                                Some(l) => tracing::warn!(target="user_cmd_stderr", "{}", l),
-                                None => break, // stderr EOF
-                            }
-                        }
-                    }
-                }
-
-                // 等待进程完成并检查退出状态
-                let status = process.wait().await.change_context(AppError::Unknown)?;
-
-                if !status.success() {
-                    bail!(AppError::Custom(format!(
-                        "Command failed with status: {}",
-                        status
-                    )));
-                }
+                self.execute_command(run, src).await?;
             }
             cmd => {
                 // 未知命令，返回错误
@@ -134,40 +81,65 @@ impl HookStep {
     /// # 参数
     /// * `cmd` - 要执行的命令字符串
     /// * `video_paths` - 视频文件路径列表
-    async fn execute_command(&self, cmd: &str, video_paths: &[&Path]) -> AppResult<()> {
+    async fn execute_command(&self, cmd: &str, src: &[u8]) -> AppResult<()> {
+        // 1. 跨平台 Shell 处理 (对应 shell=True)
+        // Windows 使用 "cmd /C"，Unix/Mac 使用 "sh -c"
+        let (shell, flag) = if cfg!(target_os = "windows") {
+            ("cmd", "/C")
+        } else {
+            ("sh", "-c")
+        };
+        // 执行自定义命令
         // 解析命令和参数
-        let parts: Vec<&str> = cmd.split_whitespace().collect();
-        if parts.is_empty() {
-            bail!(AppError::Custom("Empty command".into()));
-        }
-
         // 启动子进程，配置标准输入管道
-        let mut process = Command::new(parts[0])
-            .args(&parts[1..])
+        let mut process = Command::new(shell)
+            .arg(flag)
+            .arg(cmd)
             .stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
             .spawn()
             .change_context(AppError::Unknown)?;
 
-        // 将视频文件路径写入标准输入
+        // 将自定义输入写入标准输入
         if let Some(mut stdin) = process.stdin.take() {
-            let paths_str = video_paths
-                .iter()
-                .map(|p| p.to_string_lossy())
-                .reduce(|acc, e| Cow::from(acc.to_string() + "\n" + &*e))
-                .ok_or(AppError::Unknown)?;
             stdin
-                .write_all(paths_str.as_bytes())
+                .write_all(src)
                 .await
                 .change_context(AppError::Unknown)?;
         }
 
+        let stdout = process.stdout.take().unwrap();
+        let stderr = process.stderr.take().unwrap();
+
+        let mut stdout_lines = BufReader::new(stdout).lines();
+        let mut stderr_lines = BufReader::new(stderr).lines();
+
+        loop {
+            tokio::select! {
+                        line = stdout_lines.next_line() => {
+                            match line.change_context(AppError::Unknown)? {
+                                Some(l) => tracing::info!(target="user_cmd_stdout", "{}", l),
+                                None => break, // stdout EOF
+                            }
+                        }
+                        line = stderr_lines.next_line() => {
+                            match line.change_context(AppError::Unknown)? {
+                                Some(l) => tracing::warn!(target="user_cmd_stderr", "{}", l),
+                                None => break, // stderr EOF
+                            }
+                        }
+                    }
+        }
+
         // 等待进程完成并检查退出状态
         let status = process.wait().await.change_context(AppError::Unknown)?;
+
         if !status.success() {
             bail!(AppError::Custom(format!(
-                "Command failed with status: {}",
-                status
-            )));
+                        "Command failed with status: {}",
+                        status
+                    )));
         }
 
         Ok(())
