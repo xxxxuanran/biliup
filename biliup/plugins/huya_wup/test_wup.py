@@ -140,7 +140,7 @@ if __name__ == "__main__":
         "origin": "https://www.huya.com",
     }
     # presenterUid = 13671279
-    room_id = 594877
+    room_id = 243547
 
     # convertUid = rot_uid(1486197514)
     # print(convertUid, convertUid == 2509441624)
@@ -200,12 +200,12 @@ if __name__ == "__main__":
     # tid.lUid = presenterUid
     # tid.sDeviceId = "chrome"
     # tid.sDeviceId = "android_tv"
-    # tid.sHuYaUA = "huya_nftv&7020004&official"
+    tid.sHuYaUA = "adr&13.1.3&official#35"
     # tid.sHuYaUA = "huya_nftv&2.5.1.3243&official&28"
-    from datetime import datetime
-    now = datetime.now()
-    tid.sHuYaUA = f"webh5&{now.strftime("%y%m%d%H%M")}&websocket"
-    print(tid.sHuYaUA)
+    # from datetime import datetime
+    # now = datetime.now()
+    # tid.sHuYaUA = f"webh5&{now.strftime("%y%m%d%H%M")}&websocket"
+    # print(tid.sHuYaUA)
     LivingInfoReq = HuyaGetLivingInfoReq()
     # LivingInfoReq.lPresenterUid = presenterUid
     LivingInfoReq.iRoomId = room_id
@@ -227,7 +227,7 @@ if __name__ == "__main__":
         name="tRsp"
     )
     result_dict = LivingInfoRsp.as_dict()
-    print(result_dict)
+    # print(result_dict)
 
 
     for item in result_dict['tNotice']['vStreamInfo']:
@@ -245,7 +245,6 @@ if __name__ == "__main__":
             # getCdnTokenInfoExReq.sFlvUrl = item['sFlvUrl']
         getCdnTokenInfoExReq.sStreamName = originStreamName
         getCdnTokenInfoExReq.iLoopTime = 60 * 60 * 24 - 300
-
         getCdnTokenInfoExReq.tId = tid
         wup_req.put(
             vtype=HuyaGetCdnTokenExReq,
