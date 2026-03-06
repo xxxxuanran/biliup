@@ -29,7 +29,7 @@ HUYA_MOBILE_BASE_URL = "https://m.huya.com"
 HUYA_MP_BASE_URL = "https://mp.huya.com"
 HUYA_WUP_BASE_URL = "https://wup.huya.com"
 HUYA_WUP_YST_URL = "https://snmhuya.yst.aisee.tv"
-HUYA_WEB_ROOM_DATA_REGEX = r"var TT_ROOM_DATA = (.*?);"
+HUYA_WEB_ROOM_DATA_REGEX = r"var\s+TT_ROOM_DATA\s*=\s*(.*);"  # DOT 默认不匹配换行
 
 rotl64 = lambda t: ((t & 0xFFFFFFFF) << 8 | (t & 0xFFFFFFFF) >> 24) & 0xFFFFFFFF | (t & ~0xFFFFFFFF)
 
@@ -516,7 +516,7 @@ class UAGenerator:
             hyapp_version += f".{random.randint(3000, 5000)}"
 
         ua = f"{hyapp_platform}&{hyapp_version}&{hyapp_channel}"
-        
+
         # Add android_api_level for android platforms
         if platform in {PLATFORM.HUYA_ADR, PLATFORM.TV_HUYA_NFTV}:
             android_api_level = random.randint(28, 36)

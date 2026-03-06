@@ -1,4 +1,5 @@
 import logging
+import html
 import re
 import hashlib
 import time
@@ -17,6 +18,7 @@ from typing import (
 
 logger = logging.getLogger('biliup')
 
+_DECODER = json.JSONDecoder()
 
 def match1(text, *patterns):
     if len(patterns) == 1:
@@ -48,11 +50,29 @@ def random_user_agent(device: str = 'desktop') -> str:
     return f'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/{chrome_version}.0.0.0 Safari/537.36'
 
 
+def deep_unescape(obj: Any) -> Any:
+    if isinstance(obj, dict):
+        return {k: deep_unescape(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [deep_unescape(i) for i in obj]
+    if isinstance(obj, str):
+        return html.unescape(obj)
+    return obj
+
+
 def json_loads(text: Union[str, None]) -> Dict[str, Any]:
     if not text:
-        raise ValueError("Invalid JSON: None")
+        raise ValueError("Invalid JSON: None or Empty")
+
     try:
-        return json.loads(text)
+        data, _ = _DECODER.raw_decode(text)
+    except (json.JSONDecodeError, TypeError) as e:
+        logger.debug(f"Invalid JSON at position {getattr(e, 'pos', 'unknown')}, raw text: {text}")
+    else:
+        return data
+
+    try:
+        return json.loads(html.unescape(text))
     except json.JSONDecodeError as e:
         raise ValueError(f"Invalid JSON: {text}") from e
 
